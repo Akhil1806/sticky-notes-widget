@@ -1,0 +1,14 @@
+{
+  "appId": "com.stickynotes.widget",
+  "appName": "Sticky Notes",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#FFFDE7"
+    }
+  }
+}
