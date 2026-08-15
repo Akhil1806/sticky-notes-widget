@@ -22,64 +22,86 @@ public class StickyNoteWidget extends AppWidgetProvider {
         String noteId = WidgetDataHelper.getWidgetNoteId(context, appWidgetId);
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_sticky_note);
 
-        String title = "";
-        String content = "";
-        String color = "yellow";
-        String category = "";
-
+        JSONObject note = null;
         if (noteId != null) {
-            JSONObject note = WidgetDataHelper.getNoteById(context, noteId);
-            if (note != null) {
-                title = note.optString("title", "");
-                content = note.optString("content", "");
-                color = note.optString("color", "yellow");
-                category = note.optString("category", "");
-            }
+            note = WidgetDataHelper.getNoteById(context, noteId);
         }
+
+        if (note == null) {
+            // Orphaned / Deleted note state -> prompt user to re-configure
+            int bgColor = WidgetDataHelper.getColorForTheme("yellow");
+            int textColor = WidgetDataHelper.getTextColorForTheme("yellow");
+
+            views.setInt(R.id.widget_bg_image, "setColorFilter", bgColor);
+            views.setViewVisibility(R.id.widget_title, android.view.View.VISIBLE);
+            views.setTextViewText(R.id.widget_title, "Note Removed");
+            views.setTextColor(R.id.widget_title, textColor);
+
+            views.setTextViewText(R.id.widget_content, "Tap here to pick or create a note for this widget.");
+            views.setTextColor(R.id.widget_content, textColor);
+            views.setViewVisibility(R.id.widget_category, android.view.View.GONE);
+
+            // Tapping orphaned widget opens Config activity
+            Intent configIntent = new Intent(context, StickyNoteWidgetConfig.class);
+            configIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+            configIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent configPendingIntent = PendingIntent.getActivity(
+                context, appWidgetId, configIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+            views.setOnClickPendingIntent(R.id.widget_root, configPendingIntent);
+
+            appWidgetManager.updateAppWidget(appWidgetId, views);
+            return;
+        }
+
+        // Active Note
+        String title = note.optString("title", "");
+        String content = note.optString("content", "");
+        String color = note.optString("color", "yellow");
+        String category = note.optString("category", "");
 
         int bgColor = WidgetDataHelper.getColorForTheme(color);
         int textColor = WidgetDataHelper.getTextColorForTheme(color);
 
-        // Set background tint
+        // Background tint
         views.setInt(R.id.widget_bg_image, "setColorFilter", bgColor);
 
         // Title
-        if (title != null && !title.isEmpty()) {
+        if (!title.isEmpty()) {
             views.setTextViewText(R.id.widget_title, title);
+            views.setTextColor(R.id.widget_title, textColor);
             views.setViewVisibility(R.id.widget_title, android.view.View.VISIBLE);
         } else {
             views.setViewVisibility(R.id.widget_title, android.view.View.GONE);
         }
 
-        // Content — convert Quill HTML to styled CharSequence
+        // Content — parse rich text / task lists
         CharSequence displayContent;
-        if (content == null || content.isEmpty() || content.equals("<p><br></p>")) {
-            displayContent = "Tap to edit...";
+        if (content.isEmpty() || content.equals("<p></p>") || content.equals("<p><br></p>")) {
+            displayContent = "Tap to write note...";
         } else {
             displayContent = parseHtmlContent(content);
         }
         views.setTextViewText(R.id.widget_content, displayContent);
-
-        views.setTextColor(R.id.widget_title, textColor);
         views.setTextColor(R.id.widget_content, textColor);
 
-        // Category
-        if (category != null && !category.isEmpty()) {
-            views.setTextViewText(R.id.widget_category, category.toUpperCase());
+        // Category Tag
+        if (!category.isEmpty()) {
+            views.setTextViewText(R.id.widget_category, "#" + category.toUpperCase());
             views.setTextColor(R.id.widget_category, textColor);
             views.setViewVisibility(R.id.widget_category, android.view.View.VISIBLE);
         } else {
             views.setViewVisibility(R.id.widget_category, android.view.View.GONE);
         }
 
-        // Click → open EditNoteActivity
-        Intent intent = new Intent(context, EditNoteActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        if (noteId != null) {
-            intent.putExtra("noteId", noteId);
-        }
+        // Deep link click -> Open main app with noteId to launch instant rich editor
+        Intent appIntent = new Intent(context, MainActivity.class);
+        appIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        appIntent.putExtra("noteId", noteId);
+
         PendingIntent pendingIntent = PendingIntent.getActivity(
-            context, appWidgetId, intent,
+            context, appWidgetId, appIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent);
@@ -103,21 +125,25 @@ public class StickyNoteWidget extends AppWidgetProvider {
     }
 
     /**
-     * Convert Quill-generated HTML into a styled CharSequence for RemoteViews.
-     * Quill outputs: <p>, <strong>, <em>, <ul>, <ol>, <li>, <li data-list="checked|unchecked">
+     * Convert Tiptap & Quill HTML into styled Spanned text for RemoteViews.
      */
     private static CharSequence parseHtmlContent(String html) {
         if (html == null || html.isEmpty()) return "";
 
-        // 1. Convert Quill checklist items (MUST come before generic </li> handling)
-        html = html.replaceAll("<li data-list=\"checked\">(.*?)</li>", "<li>\u2611 <s>$1</s></li>");
-        html = html.replaceAll("<li data-list=\"unchecked\">(.*?)</li>", "<li>\u2610 $1</li>");
+        // 1. Tiptap Task Lists: <li data-type="taskItem" data-checked="true/false">
+        html = html.replaceAll("(?i)<li[^>]*data-type=[\"']taskItem[\"'][^>]*data-checked=[\"']true[\"'][^>]*>(.*?)</li>", "<li>\u2611 <s>$1</s></li>");
+        html = html.replaceAll("(?i)<li[^>]*data-type=[\"']taskItem[\"'][^>]*data-checked=[\"']false[\"'][^>]*>(.*?)</li>", "<li>\u2610 $1</li>");
 
-        // 2. Remove empty Quill paragraphs
+        // 2. Quill fallback: <li data-list="checked/unchecked">
+        html = html.replaceAll("(?i)<li[^>]*data-list=[\"']checked[\"'][^>]*>(.*?)</li>", "<li>\u2611 <s>$1</s></li>");
+        html = html.replaceAll("(?i)<li[^>]*data-list=[\"']unchecked[\"'][^>]*>(.*?)</li>", "<li>\u2610 $1</li>");
+
+        // 3. Clean up empty paragraphs & normalize breaks
         html = html.replace("<p><br></p>", "<br>");
         html = html.replace("<p><br/></p>", "<br>");
+        html = html.replace("<p></p>", "");
 
-        // 3. Parse with Html.fromHtml
+        // 4. Parse with Html.fromHtml
         CharSequence result;
         if (android.os.Build.VERSION.SDK_INT >= 24) {
             result = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_COMPACT);
@@ -127,7 +153,7 @@ public class StickyNoteWidget extends AppWidgetProvider {
             result = legacy;
         }
 
-        // 4. Trim trailing whitespace
+        // 5. Trim trailing whitespace
         String s = result.toString();
         int end = s.length();
         while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {

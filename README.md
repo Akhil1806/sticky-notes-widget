@@ -1,77 +1,31 @@
-# 📝 Sticky Notes Widget
+# 📝 Sticky Notes Widget (Apple & Samsung Notes Style)
 
-A beautiful, feature-rich sticky notes app for Android built with React + Capacitor.
+A modern, high-performance Sticky Notes & Home Screen Widget app for Android built with React 19, Tiptap, and Capacitor 8.
 
-## ✨ Features
+## ✨ Key Features
 
-- **8 Color Themes** — Yellow, Coral, Mint, Sky, Lavender, Peach, Ocean, Rose
-- **Drag & Drop** — Smooth touch + mouse dragging with 60fps animations
-- **Resize Notes** — Grab the corner handle to resize any note
-- **Pin/Unpin** — Pin important notes so they stay in place
-- **Rich Editing** — Bold, italic, bullet lists, checklists, font size control
-- **Quick Templates** — Create To-Do, Idea, Important, Reminder, Quote notes instantly
-- **Search & Filter** — Find notes by text or filter by category
-- **Auto Categories** — Auto-generated category tags for easy organization
-- **Grid/Free Layout** — Toggle between grid view and free-form canvas
-- **Dark Mode** — Automatic dark mode support
-- **Export** — Export all notes as JSON
-- **Auto-Save** — All notes saved to local storage automatically
-- **Android APK** — Built via GitHub Actions CI/CD
+- **Apple / Samsung Notes Styled UI** — Clean, responsive card grid with soft pastel themes and true WCAG 2.1 AA compliant Dark Mode.
+- **Focused Modal Editor** — Distraction-free sheet editor with floating formatting bar, heading levels, lists, and real-time auto-save.
+- **Interactive Live Checklists** — Check off task items directly on the home hub or inside the editor with animated strikethrough and haptic feedback.
+- **Native Android Home Screen Widgets** — Pin any note to your Android home screen as a scrollable widget with live updates and instant deep link editing.
+- **Seamless Bidirectional Sync** — Zero disconnect between the in-app notes and home screen widgets, with debounced storage writes and automatic resume reconciliation.
+- **Instant Search & Category Tags** — Filter by `#tags`, search text cleanly without HTML leakage, and keep important thoughts pinned to the top.
+- **Export & Import** — Full JSON backup export and restore capabilities.
+- **Haptic Tactile Feedback** — Native mobile haptics for checkmarks, pinning, and note deletions.
 
-## 🏗️ Tech Stack
+## 🏗️ Architecture
 
-| Layer | Technology |
-|-------|-----------|
-| UI | React 19 + Vanilla CSS |
-| Build | Vite 8 |
-| Native | Capacitor 8 |
-| CI/CD | GitHub Actions |
-| Target | Android APK |
-
-## 🚀 Getting Started
-
-### Local Development (Termux)
-
-```bash
-# Install dependencies
-npm install
-
-# Run dev server
-npm run dev
-
-# Build for production
-npm run build
-
-# Sync with Capacitor
-npm run cap:sync
 ```
-
-### Build APK via GitHub Actions
-
-1. Push to GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: Sticky Notes Widget"
-   git remote add origin https://github.com/YOUR_USER/sticky-notes-widget.git
-   git push -u origin main
-   ```
-
-2. GitHub Actions will automatically:
-   - Build the web assets
-   - Sync with Capacitor
-   - Compile the Android APK
-   - Upload as artifact + create a release
-
-3. Download the APK from **Releases** or **Actions → Artifacts**
-
-### Manual APK Build (if you have Android SDK)
-
-```bash
-npm run cap:build
-cd android
-./gradlew assembleDebug
-# APK at: android/app/build/outputs/apk/debug/app-debug.apk
+┌─────────────────────────────────────────────────────────────┐
+│                 App Architecture Overview                   │
+├──────────────────────────────┬──────────────────────────────┤
+│       In-App Note Hub        │  Android Home Screen Widget  │
+├──────────────────────────────┼──────────────────────────────┤
+│ • React 19 + Tiptap Editor   │ • Native RemoteViews Provider│
+│ • DOMPurify Safe Rendering   │ • ScrollView for long notes  │
+│ • Filterable Masonry Cards   │ • Live pastel color themes   │
+│ • JSON Import & Export       │ • 1-Tap Deep Link Editor     │
+└──────────────────────────────┴──────────────────────────────┘
 ```
 
 ## 📁 Project Structure
@@ -79,27 +33,34 @@ cd android
 ```
 ├── src/
 │   ├── components/
-│   │   ├── StickyNote.jsx    # Draggable note with all features
-│   │   ├── Toolbar.jsx       # Header with search, filters, menu
-│   │   ├── FAB.jsx           # Floating action button with templates
-│   │   └── EmptyState.jsx    # Empty state illustration
+│   │   ├── StickyNoteCard.jsx   # Interactive note card in the Hub
+│   │   ├── ModalEditor.jsx      # Apple/Samsung style popup editor
+│   │   ├── Toolbar.jsx          # Search bar, category filters, import/export
+│   │   ├── FAB.jsx              # Floating action button with quick templates
+│   │   └── EmptyState.jsx       # Clean empty state illustration
 │   ├── hooks/
-│   │   ├── useNotes.js       # Note state management + localStorage
-│   │   └── useDrag.js        # Drag & resize with touch support
-│   ├── App.jsx               # Main app component
-│   ├── main.jsx              # Entry point
-│   └── index.css             # Complete design system
-├── android/                  # Capacitor Android project
-├── .github/workflows/
-│   └── build-apk.yml         # CI/CD pipeline
-├── capacitor.config.json
+│   │   └── useNotes.js          # Reactive note store, debounce, haptics
+│   ├── plugins/
+│   │   └── widgetPlugin.js      # Capacitor Android bridge
+│   ├── App.jsx                  # Main note hub layout
+│   ├── main.jsx                 # React entry point
+│   └── index.css                # Complete Apple/Samsung notes design system
+├── android/                     # Capacitor native Android app & widgets
 └── package.json
 ```
 
-## 📱 Screenshots
+## 🚀 Development & Build
 
-*Build and install the APK to see the app in action!*
+```bash
+# Install dependencies
+npm install
+
+# Run web dev server
+npm run dev
+
+# Build web assets and sync to Android
+npm run cap:build
+```
 
 ## License
-
 MIT

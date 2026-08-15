@@ -2,54 +2,66 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /**
  * Capacitor plugin bridge for Android home screen widget.
- * Syncs note data from the web app to native SharedPreferences
- * so the AppWidgetProvider can render notes on the home screen.
+ * Synchronizes note data between the web app and native SharedPreferences.
  */
 
 const WidgetPlugin = registerPlugin('WidgetPlugin');
 
 /**
- * Sync all notes to the native widget layer.
- * Call this whenever notes change.
+ * Sync all notes to the native Android widget layer.
  * @param {Array} notes - Array of note objects
  */
 export async function syncNotesToWidget(notes) {
   try {
-    // Only run on Android with Capacitor
     if (!Capacitor.isNativePlatform()) return;
-
-    const data = JSON.stringify(notes);
+    const data = JSON.stringify(notes || []);
     await WidgetPlugin.syncNotes({ data });
-    console.log('[Widget] Synced', notes.length, 'notes to native widget');
   } catch (err) {
-    // Silently fail on web — widget only works on Android
-    console.warn('[Widget] Sync failed:', err.message);
+    console.warn('[WidgetPlugin] syncNotes failed:', err?.message || err);
   }
 }
 
 /**
  * Get notes data stored in native SharedPreferences.
- * Useful for initial load to merge widget-created notes.
- * @returns {Array} notes from native storage
+ * @returns {Promise<Array>} notes from native storage
  */
 export async function getWidgetNotes() {
   try {
     if (!Capacitor.isNativePlatform()) return [];
-
     const result = await WidgetPlugin.getWidgetNotes();
-    return JSON.parse(result.data || '[]');
+    if (!result || !result.data) return [];
+    return JSON.parse(result.data);
   } catch (err) {
-    console.warn('[Widget] Get failed:', err.message);
+    console.warn('[WidgetPlugin] getWidgetNotes failed:', err?.message || err);
     return [];
   }
 }
 
+/**
+ * Check if the app was launched by tapping a specific widget on the home screen.
+ * @returns {Promise<{ noteId: string }>}
+ */
 export async function getLaunchIntent() {
   try {
     if (!Capacitor.isNativePlatform()) return { noteId: '' };
-    return await WidgetPlugin.getLaunchIntent();
+    const result = await WidgetPlugin.getLaunchIntent();
+    return result || { noteId: '' };
   } catch (err) {
     return { noteId: '' };
+  }
+}
+
+/**
+ * Clear the launch intent so reopening the app from recents does not re-trigger edit mode.
+ */
+export async function clearLaunchIntent() {
+  try {
+    if (!Capacitor.isNativePlatform()) return;
+    if (WidgetPlugin.clearLaunchIntent) {
+      await WidgetPlugin.clearLaunchIntent();
+    }
+  } catch (err) {
+    // Ignore if not implemented on older native builds
   }
 }
 

@@ -9,6 +9,12 @@ import com.getcapacitor.JSObject;
 @CapacitorPlugin(name = "WidgetPlugin")
 public class WidgetPlugin extends Plugin {
 
+    private static String pendingLaunchNoteId = null;
+
+    public static void notifyLaunchIntent(String noteId) {
+        pendingLaunchNoteId = noteId;
+    }
+
     @PluginMethod
     public void syncNotes(PluginCall call) {
         String data = call.getString("data");
@@ -20,7 +26,7 @@ public class WidgetPlugin extends Plugin {
         // Save to SharedPreferences
         WidgetDataHelper.saveNotesData(getContext(), data);
 
-        // Update all existing widgets
+        // Update all existing home screen widgets
         StickyNoteWidget.updateAllWidgets(getContext());
 
         JSObject ret = new JSObject();
@@ -38,13 +44,27 @@ public class WidgetPlugin extends Plugin {
 
     @PluginMethod
     public void getLaunchIntent(PluginCall call) {
-        android.content.Intent intent = getActivity().getIntent();
-        String noteId = null;
-        if (intent != null && intent.hasExtra("noteId")) {
-            noteId = intent.getStringExtra("noteId");
+        String noteId = pendingLaunchNoteId;
+        if (noteId == null && getActivity() != null && getActivity().getIntent() != null) {
+            android.content.Intent intent = getActivity().getIntent();
+            if (intent.hasExtra("noteId")) {
+                noteId = intent.getStringExtra("noteId");
+            }
         }
+
         JSObject ret = new JSObject();
         ret.put("noteId", noteId != null ? noteId : "");
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void clearLaunchIntent(PluginCall call) {
+        pendingLaunchNoteId = null;
+        if (getActivity() != null && getActivity().getIntent() != null) {
+            getActivity().getIntent().removeExtra("noteId");
+        }
+        JSObject ret = new JSObject();
+        ret.put("success", true);
         call.resolve(ret);
     }
 }

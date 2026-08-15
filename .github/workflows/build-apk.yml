@@ -13,52 +13,54 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install Node Dependencies
+        run: npm install
 
-      - name: Build web assets
-        run: npx vite build
+      - name: Build Web Application
+        run: npm run build
 
-      - name: Sync Capacitor
+      - name: Synchronize Capacitor
         run: npx cap sync android
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Make Gradlew executable
+      - name: Make Gradle Executable
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK
-        run: cd android && ./gradlew assembleDebug
+      - name: Compile Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sticky-notes-debug
+          name: sticky-notes-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-      - name: Create Release
+      - name: Create GitHub Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: Sticky Notes v${{ github.run_number }}
+          tag_name: v1.0.${{ github.run_number }}
+          name: Sticky Notes App v1.0.${{ github.run_number }}
           files: android/app/build/outputs/apk/debug/app-debug.apk
           generate_release_notes: true
         env:

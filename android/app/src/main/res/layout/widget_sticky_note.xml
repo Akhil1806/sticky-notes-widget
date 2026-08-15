@@ -33,17 +33,24 @@
             android:ellipsize="end"
             android:paddingBottom="6dp" />
 
-        <!-- Body content -->
-        <TextView
-            android:id="@+id/widget_content"
+        <!-- Scrollable Body content -->
+        <ScrollView
+            android:id="@+id/widget_scroll"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:textSize="13sp"
-            android:textColor="#3E2723"
-            android:lineSpacingMultiplier="1.3"
-            android:ellipsize="end"
-            android:gravity="top" />
+            android:fillViewport="true"
+            android:scrollbars="none">
+
+            <TextView
+                android:id="@+id/widget_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#3E2723"
+                android:lineSpacingMultiplier="1.3"
+                android:gravity="top" />
+        </ScrollView>
 
         <!-- Category tag -->
         <TextView

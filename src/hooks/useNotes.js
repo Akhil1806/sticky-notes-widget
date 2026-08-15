@@ -1,48 +1,64 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { syncNotesToWidget, getWidgetNotes } from '../plugins/widgetPlugin';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { syncNotesToWidget, getWidgetNotes, getLaunchIntent, clearLaunchIntent } from '../plugins/widgetPlugin';
 
 const STORAGE_KEY = 'sticky-notes-data';
-const NOTE_COLORS = ['yellow', 'coral', 'mint', 'sky', 'lavender', 'peach', 'ocean', 'rose'];
+export const NOTE_COLORS = ['yellow', 'coral', 'mint', 'sky', 'lavender', 'peach', 'ocean', 'rose'];
 
-const generateId = () => `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-const getRandomRotation = () => (Math.random() * 6 - 3).toFixed(1);
-
-const getRandomPosition = (existingNotes) => {
-  const baseX = 20 + Math.random() * 200;
-  const baseY = 80 + Math.random() * 300;
-  // Offset if overlapping with existing notes
-  let x = baseX;
-  let y = baseY;
-  for (const note of existingNotes) {
-    if (Math.abs(note.x - x) < 60 && Math.abs(note.y - y) < 60) {
-      x += 30 + Math.random() * 40;
-      y += 30 + Math.random() * 40;
-    }
-  }
-  return { x, y };
+export const COLOR_HEX = {
+  yellow: { bg: '#FFF9C4', text: '#3E2723', darkBg: '#38341A', darkText: '#FFF9C4' },
+  coral:  { bg: '#FFCDD2', text: '#B71C1C', darkBg: '#3E1D20', darkText: '#FFCDD2' },
+  mint:   { bg: '#C8E6C9', text: '#1B5E20', darkBg: '#1B361F', darkText: '#C8E6C9' },
+  sky:    { bg: '#BBDEFB', text: '#0D47A1', darkBg: '#172C42', darkText: '#BBDEFB' },
+  lavender:{bg: '#E1BEE7', text: '#4A148C', darkBg: '#341A3B', darkText: '#E1BEE7' },
+  peach:  { bg: '#FFE0B2', text: '#E65100', darkBg: '#3D2816', darkText: '#FFE0B2' },
+  ocean:  { bg: '#B2EBF2', text: '#006064', darkBg: '#13353A', darkText: '#B2EBF2' },
+  rose:   { bg: '#F8BBD0', text: '#880E4F', darkBg: '#3A1826', darkText: '#F8BBD0' },
 };
 
-const createNote = (existingNotes, overrides = {}) => {
-  const pos = getRandomPosition(existingNotes);
+const generateId = () => `note-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+const triggerHaptic = async (style = ImpactStyle.Light) => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await Haptics.impact({ style });
+    }
+  } catch (e) {
+    // Ignore haptic errors on unsupported devices
+  }
+};
+
+const createNote = (overrides = {}) => {
+  const now = new Date().toISOString();
   return {
     id: generateId(),
     title: '',
     content: '',
     color: NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)],
-    rotation: getRandomRotation(),
-    x: pos.x,
-    y: pos.y,
-    width: 220,
-    height: 200,
     pinned: false,
     category: '',
-    fontSize: 14,
-    zIndex: Date.now(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    fontSize: 15,
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   };
+};
+
+/**
+ * Strip HTML tags safely for search indexing and card previews.
+ */
+export const stripHtml = (html) => {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
 };
 
 export function useNotes() {
@@ -50,91 +66,157 @@ export function useNotes() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [editingNoteId, setEditingNoteId] = useState(null);
-  const [maxZ, setMaxZ] = useState(1);
   const [isReady, setIsReady] = useState(false);
+  const debounceTimerRef = useRef(null);
 
-  // Load from localStorage on mount and merge with native widget data
+  // Reconcile and merge native widget notes with local state
+  const reconcileWithWidgetNotes = useCallback(async (currentNotes) => {
+    if (!Capacitor.isNativePlatform()) return currentNotes;
+    try {
+      const widgetNotes = await getWidgetNotes();
+      if (!Array.isArray(widgetNotes) || widgetNotes.length === 0) {
+        return currentNotes;
+      }
+
+      const notesMap = new Map((currentNotes || []).map((n) => [n.id, { ...n }]));
+      let hasChanges = false;
+
+      for (const wn of widgetNotes) {
+        if (!wn || !wn.id) continue;
+        const local = notesMap.get(wn.id);
+        if (!local) {
+          notesMap.set(wn.id, wn);
+          hasChanges = true;
+        } else {
+          const wTime = wn.updatedAt ? new Date(wn.updatedAt).getTime() : 0;
+          const lTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+          if (wTime > lTime) {
+            notesMap.set(wn.id, { ...local, ...wn });
+            hasChanges = true;
+          }
+        }
+      }
+
+      if (hasChanges) {
+        const merged = Array.from(notesMap.values());
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        return merged;
+      }
+      return currentNotes;
+    } catch (err) {
+      console.warn('[useNotes] Reconciliation error:', err);
+      return currentNotes;
+    }
+  }, []);
+
+  // Initial load
   useEffect(() => {
+    let isMounted = true;
+
     const init = async () => {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
-        let parsed = stored ? JSON.parse(stored) : [];
-
-        // Check native widget storage for any updates made via the widget dialog
-        if (Capacitor.isNativePlatform()) {
+        let parsed = [];
+        if (stored) {
           try {
-            const result = await WidgetPlugin.getWidgetNotes();
-            const widgetNotes = JSON.parse(result.data || '[]');
-            
-            if (widgetNotes.length > 0) {
-              const appNotesMap = new Map(parsed.map(n => [n.id, n]));
-              let changed = false;
-
-              for (const wn of widgetNotes) {
-                const appNote = appNotesMap.get(wn.id);
-                if (!appNote) {
-                  // Note was created on widget side
-                  parsed.push(wn);
-                  changed = true;
-                } else {
-                  // Merge if widget note is newer
-                  const wTime = wn.updatedAt ? new Date(wn.updatedAt).getTime() : 0;
-                  const aTime = appNote.updatedAt ? new Date(appNote.updatedAt).getTime() : 0;
-                  if (wTime > aTime) {
-                    Object.assign(appNote, wn);
-                    changed = true;
-                  }
-                }
-              }
-
-              if (changed) {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-              }
-            }
-          } catch (err) {
-            console.warn('[Widget] Failed to merge native notes:', err);
+            parsed = JSON.parse(stored);
+            if (!Array.isArray(parsed)) parsed = [];
+          } catch (e) {
+            console.error('[useNotes] Corrupted cache detected, preserving backup:', e);
+            parsed = [];
           }
         }
 
-        if (parsed.length > 0) {
-          setNotes(parsed);
-          const maxZIndex = parsed.reduce((max, n) => Math.max(max, n.zIndex || 0), 1);
-          setMaxZ(maxZIndex);
-          syncNotesToWidget(parsed);
-        } else {
-          syncNotesToWidget([]);
+        // Merge with native SharedPreferences on Android
+        const merged = await reconcileWithWidgetNotes(parsed);
+        if (isMounted) {
+          setNotes(merged);
+          setIsReady(true);
+          syncNotesToWidget(merged);
         }
-      } catch (e) {
-        console.error('Failed to load notes:', e);
+
+        // Check if launched via widget tap
+        const intent = await getLaunchIntent();
+        if (isMounted && intent && intent.noteId) {
+          setEditingNoteId(intent.noteId);
+          clearLaunchIntent();
+        }
+      } catch (err) {
+        console.error('[useNotes] Init failed:', err);
+        if (isMounted) setIsReady(true);
       }
-      setIsReady(true);
     };
 
     init();
-  }, []);
 
-  // Save to localStorage on change + sync to native widget
+    // Listen for app state changes (resume/foreground) to pull latest widget edits
+    let appStateListener = null;
+    if (Capacitor.isNativePlatform()) {
+      CapApp.addListener('appStateChange', async ({ isActive }) => {
+        if (isActive) {
+          setNotes((prevNotes) => {
+            reconcileWithWidgetNotes(prevNotes).then((updated) => {
+              if (updated !== prevNotes) {
+                setNotes(updated);
+              }
+            });
+            return prevNotes;
+          });
+
+          // Check if newly launched via intent
+          const intent = await getLaunchIntent();
+          if (intent && intent.noteId) {
+            setEditingNoteId(intent.noteId);
+            clearLaunchIntent();
+          }
+        }
+      }).then((handle) => {
+        appStateListener = handle;
+      });
+    }
+
+    return () => {
+      isMounted = false;
+      if (appStateListener) {
+        appStateListener.remove();
+      }
+    };
+  }, [reconcileWithWidgetNotes]);
+
+  // Debounced auto-save to localStorage and Android widget
   useEffect(() => {
-    if (isReady) {
+    if (!isReady) return;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-        // Sync to native Android widget
         syncNotesToWidget(notes);
       } catch (e) {
-        console.error('Failed to save notes:', e);
+        console.error('[useNotes] Auto-save failed:', e);
       }
-    }
+    }, 250);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [notes, isReady]);
 
+  // Add new note
   const addNote = useCallback((overrides = {}) => {
-    setNotes((prev) => {
-      const newNote = createNote(prev, { zIndex: maxZ + 1, ...overrides });
-      setMaxZ((z) => z + 1);
-      setEditingNoteId(newNote.id);
-      return [...prev, newNote];
-    });
-  }, [maxZ]);
+    triggerHaptic(ImpactStyle.Medium);
+    const newNote = createNote(overrides);
+    setNotes((prev) => [newNote, ...prev]);
+    setEditingNoteId(newNote.id);
+    return newNote.id;
+  }, []);
 
+  // Update existing note
   const updateNote = useCallback((id, updates) => {
     setNotes((prev) =>
       prev.map((note) =>
@@ -145,85 +227,147 @@ export function useNotes() {
     );
   }, []);
 
+  // Delete note
   const deleteNote = useCallback((id) => {
+    triggerHaptic(ImpactStyle.Medium);
     setNotes((prev) => prev.filter((note) => note.id !== id));
     if (editingNoteId === id) setEditingNoteId(null);
   }, [editingNoteId]);
 
+  // Duplicate note
   const duplicateNote = useCallback((id) => {
+    triggerHaptic(ImpactStyle.Light);
     setNotes((prev) => {
       const source = prev.find((n) => n.id === id);
       if (!source) return prev;
-      const newNote = createNote(prev, {
-        title: source.title,
+      const copy = createNote({
+        title: source.title ? `${source.title} (Copy)` : 'Copy',
         content: source.content,
         color: source.color,
         category: source.category,
         fontSize: source.fontSize,
-        width: source.width,
-        height: source.height,
-        x: source.x + 30,
-        y: source.y + 30,
-        zIndex: maxZ + 1,
+        pinned: false,
       });
-      setMaxZ((z) => z + 1);
-      return [...prev, newNote];
+      return [copy, ...prev];
     });
-  }, [maxZ]);
+  }, []);
 
+  // Toggle pin
   const togglePin = useCallback((id) => {
+    triggerHaptic(ImpactStyle.Light);
     setNotes((prev) =>
       prev.map((note) =>
-        note.id === id
-          ? { ...note, pinned: !note.pinned, rotation: !note.pinned ? '0' : getRandomRotation() }
-          : note
+        note.id === id ? { ...note, pinned: !note.pinned, updatedAt: new Date().toISOString() } : note
       )
     );
   }, []);
 
-  const bringToFront = useCallback((id) => {
-    const newZ = maxZ + 1;
-    setMaxZ(newZ);
+  // Directly toggle a checklist item inside note content from the card view!
+  const toggleChecklistItem = useCallback((noteId, itemIndex) => {
+    triggerHaptic(ImpactStyle.Light);
     setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id ? { ...note, zIndex: newZ } : note
-      )
-    );
-  }, [maxZ]);
+      prev.map((note) => {
+        if (note.id !== noteId || !note.content) return note;
 
-  const moveNote = useCallback((id, x, y) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id ? { ...note, x, y } : note
-      )
+        let currentIndex = 0;
+        let modified = false;
+
+        // Handle Tiptap TaskItem: <li data-type="taskItem" data-checked="false|true">
+        let newContent = note.content.replace(
+          /(<li\s+[^>]*data-type="taskItem"[^>]*data-checked=")(true|false)(")/gi,
+          (match, prefix, checkedState, suffix) => {
+            if (currentIndex === itemIndex) {
+              modified = true;
+              currentIndex++;
+              const nextState = checkedState === 'true' ? 'false' : 'true';
+              return `${prefix}${nextState}${suffix}`;
+            }
+            currentIndex++;
+            return match;
+          }
+        );
+
+        // Fallback for Quill data-list="checked|unchecked"
+        if (!modified) {
+          currentIndex = 0;
+          newContent = note.content.replace(
+            /(<li\s+[^>]*data-list=")(checked|unchecked)(")/gi,
+            (match, prefix, checkedState, suffix) => {
+              if (currentIndex === itemIndex) {
+                modified = true;
+                currentIndex++;
+                const nextState = checkedState === 'checked' ? 'unchecked' : 'checked';
+                return `${prefix}${nextState}${suffix}`;
+              }
+              currentIndex++;
+              return match;
+            }
+          );
+        }
+
+        if (modified) {
+          return { ...note, content: newContent, updatedAt: new Date().toISOString() };
+        }
+        return note;
+      })
     );
   }, []);
 
-  const resizeNote = useCallback((id, width, height) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id
-          ? { ...note, width: Math.max(160, width), height: Math.max(140, height) }
-          : note
-      )
-    );
+  // Import notes from JSON
+  const importNotes = useCallback((jsonString) => {
+    try {
+      const data = JSON.parse(jsonString);
+      if (!Array.isArray(data)) throw new Error('Import data must be a JSON array.');
+
+      const importedNotes = data.map((item) => ({
+        id: item.id || generateId(),
+        title: String(item.title || ''),
+        content: String(item.content || ''),
+        color: NOTE_COLORS.includes(item.color) ? item.color : 'yellow',
+        category: String(item.category || ''),
+        pinned: Boolean(item.pinned),
+        fontSize: Number(item.fontSize) || 15,
+        createdAt: item.createdAt || new Date().toISOString(),
+        updatedAt: item.updatedAt || new Date().toISOString(),
+      }));
+
+      setNotes((prev) => {
+        const existingIds = new Set(prev.map((n) => n.id));
+        const nonConflicting = importedNotes.map((n) =>
+          existingIds.has(n.id) ? { ...n, id: generateId() } : n
+        );
+        return [...nonConflicting, ...prev];
+      });
+
+      triggerHaptic(ImpactStyle.Heavy);
+      return { success: true, count: importedNotes.length };
+    } catch (err) {
+      console.error('[useNotes] Import failed:', err);
+      return { success: false, error: err.message };
+    }
   }, []);
 
+  // Clear all notes
   const clearAll = useCallback(() => {
+    triggerHaptic(ImpactStyle.Heavy);
     setNotes([]);
     setEditingNoteId(null);
   }, []);
 
-  // Derived data
-  const categories = [...new Set(notes.map((n) => n.category).filter(Boolean))];
+  // Derived categories (unique non-empty tags)
+  const categories = Array.from(new Set(notes.map((n) => n.category).filter(Boolean)));
 
+  // Filtered notes (with safe null checks & HTML-safe search)
   const filteredNotes = notes.filter((note) => {
-    const matchesSearch =
-      !searchQuery ||
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.content.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      activeCategory === 'all' || note.category === activeCategory;
+    const titleMatch = (note.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const cleanContent = stripHtml(note.content || '').toLowerCase();
+    const contentMatch = cleanContent.includes(searchQuery.toLowerCase());
+    const matchesSearch = !searchQuery || titleMatch || contentMatch;
+
+    if (activeCategory === 'pinned') {
+      return note.pinned && matchesSearch;
+    }
+    const matchesCategory = activeCategory === 'all' || note.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -242,10 +386,10 @@ export function useNotes() {
     deleteNote,
     duplicateNote,
     togglePin,
-    bringToFront,
-    moveNote,
-    resizeNote,
+    toggleChecklistItem,
+    importNotes,
     clearAll,
     NOTE_COLORS,
+    COLOR_HEX,
   };
 }

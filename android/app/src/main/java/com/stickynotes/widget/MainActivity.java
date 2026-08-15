@@ -1,5 +1,6 @@
 package com.stickynotes.widget;
 
+import android.content.Intent;
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
@@ -8,5 +9,15 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         registerPlugin(WidgetPlugin.class);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.hasExtra("noteId")) {
+            String noteId = intent.getStringExtra("noteId");
+            WidgetPlugin.notifyLaunchIntent(noteId);
+        }
     }
 }

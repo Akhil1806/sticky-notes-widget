@@ -1,95 +1,112 @@
 import { useState } from 'react';
 
-const PLUS_SVG = (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+const PLUS_ICON = (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
   </svg>
 );
 
-const NOTE_TYPES = [
-  { id: 'blank', label: 'Blank Note', emoji: '📄', color: 'yellow' },
-  { id: 'todo', label: 'To-Do List', emoji: '✅', color: 'mint' },
-  { id: 'idea', label: 'Idea', emoji: '💡', color: 'peach' },
-  { id: 'important', label: 'Important', emoji: '🔴', color: 'coral' },
-  { id: 'reminder', label: 'Reminder', emoji: '⏰', color: 'sky' },
-  { id: 'quote', label: 'Quote', emoji: '✨', color: 'lavender' },
+const TEMPLATES = [
+  {
+    id: 'blank',
+    label: 'Blank Note',
+    emoji: '📝',
+    color: 'yellow',
+    title: '',
+    content: '<p></p>',
+    category: '',
+    pinned: false,
+  },
+  {
+    id: 'todo',
+    label: 'To-Do List',
+    emoji: '☑️',
+    color: 'mint',
+    title: 'To-Do List',
+    content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>First task</p></li><li data-type="taskItem" data-checked="false"><p>Second task</p></li></ul>',
+    category: 'tasks',
+    pinned: false,
+  },
+  {
+    id: 'shopping',
+    label: 'Shopping',
+    emoji: '🛒',
+    color: 'peach',
+    title: 'Shopping List',
+    content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Groceries</p></li><li data-type="taskItem" data-checked="false"><p>Essentials</p></li></ul>',
+    category: 'shopping',
+    pinned: false,
+  },
+  {
+    id: 'idea',
+    label: 'Quick Idea',
+    emoji: '💡',
+    color: 'sky',
+    title: '💡 Idea',
+    content: '<p>Key thoughts and notes...</p>',
+    category: 'ideas',
+    pinned: false,
+  },
+  {
+    id: 'important',
+    label: 'Important Note',
+    emoji: '🔴',
+    color: 'coral',
+    title: '🔴 Important',
+    content: '<p>Don’t forget:</p>',
+    category: 'important',
+    pinned: true,
+  },
 ];
 
 export default function FAB({ onAddNote }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleAdd = (type) => {
-    const overrides = {};
-
-    switch (type.id) {
-      case 'todo':
-        overrides.title = 'To-Do';
-        overrides.content = '☐ \n☐ \n☐ ';
-        overrides.color = type.color;
-        overrides.category = 'tasks';
-        break;
-      case 'idea':
-        overrides.title = '💡 Idea';
-        overrides.color = type.color;
-        overrides.category = 'ideas';
-        break;
-      case 'important':
-        overrides.title = '🔴 Important';
-        overrides.color = type.color;
-        overrides.category = 'important';
-        overrides.pinned = true;
-        overrides.rotation = '0';
-        break;
-      case 'reminder':
-        overrides.title = '⏰ Reminder';
-        overrides.color = type.color;
-        overrides.category = 'reminders';
-        break;
-      case 'quote':
-        overrides.title = '✨ Quote';
-        overrides.content = '"';
-        overrides.color = type.color;
-        overrides.category = 'quotes';
-        break;
-      default:
-        overrides.color = type.color;
-    }
-
-    onAddNote(overrides);
+  const handleSelectTemplate = (template) => {
+    onAddNote({
+      title: template.title,
+      content: template.content,
+      color: template.color,
+      category: template.category,
+      pinned: template.pinned,
+    });
     setIsOpen(false);
   };
 
   return (
-    <div className={`fab-container ${isOpen ? 'open' : ''}`}>
-      {/* Sub-menu buttons */}
+    <div className={`fab-wrapper ${isOpen ? 'is-open' : ''}`}>
+      {/* Backdrop */}
       {isOpen && (
-        <div className="fab-menu">
-          {NOTE_TYPES.map((type, index) => (
+        <div className="fab-backdrop-dim" onClick={() => setIsOpen(false)} />
+      )}
+
+      {/* Speed Dial Menu */}
+      {isOpen && (
+        <div className="fab-speed-dial">
+          {TEMPLATES.map((item, index) => (
             <button
-              key={type.id}
-              className={`fab-menu-item note-swatch-${type.color}`}
-              onClick={() => handleAdd(type)}
-              style={{ '--delay': `${index * 0.05}s` }}
-              title={type.label}
+              key={item.id}
+              type="button"
+              className={`speed-dial-item item-color-${item.color}`}
+              onClick={() => handleSelectTemplate(item)}
+              style={{ animationDelay: `${index * 0.04}s` }}
             >
-              <span className="fab-menu-emoji">{type.emoji}</span>
-              <span className="fab-menu-label">{type.label}</span>
+              <span className="speed-dial-emoji">{item.emoji}</span>
+              <span className="speed-dial-label">{item.label}</span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Main FAB */}
+      {/* Main Floating Action Button */}
       <button
-        className={`fab ${isOpen ? 'active' : ''}`}
+        type="button"
+        className={`main-fab ${isOpen ? 'active' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
-        title="Add note"
+        title="Add new note or task"
       >
-        {PLUS_SVG}
+        {PLUS_ICON}
       </button>
-
-      {/* Backdrop */}
-      {isOpen && <div className="fab-backdrop" onClick={() => setIsOpen(false)} />}
     </div>
   );
 }
