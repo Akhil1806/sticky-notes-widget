@@ -45,7 +45,7 @@
       } else if (type === 'list') {
         quill.format('list', format.list === 'bullet' ? false : 'bullet');
       } else if (type === 'checklist') {
-        quill.format('list', format.list === 'check' ? false : 'check');
+        quill.format('list', (format.list === 'checked' || format.list === 'unchecked') ? false : 'check');
       }
     }
     

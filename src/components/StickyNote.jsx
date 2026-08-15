@@ -177,7 +177,7 @@ export default function StickyNote({
         editor.format('list', format.list === 'bullet' ? false : 'bullet');
         break;
       case 'checklist':
-        editor.format('list', format.list === 'check' ? false : 'check');
+        editor.format('list', (format.list === 'checked' || format.list === 'unchecked') ? false : 'check');
         break;
       default:
         break;
