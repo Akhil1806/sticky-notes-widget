@@ -3,9 +3,7 @@ package com.stickynotes.widget;
 import android.app.Activity;
 import android.appwidget.AppWidgetManager;
 import android.content.Intent;
-import android.graphics.Color;
 import android.os.Bundle;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -42,56 +40,56 @@ public class StickyNoteWidgetConfig extends Activity {
     }
 
     private void buildUI() {
-        // Build a simple list UI programmatically (no XML dependency issues)
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFFF5F0E8);
-        root.setPadding(dp(24), dp(48), dp(24), dp(24));
+        root.setBackgroundColor(0xFFF6F4EE);
+        root.setPadding(dp(20), dp(40), dp(20), dp(20));
 
-        // Title
+        // Header Title
         TextView header = new TextView(this);
-        header.setText("Select a Note for Widget");
+        header.setText("Select Note for Widget");
         header.setTextSize(22);
-        header.setTextColor(0xFF1A1A1A);
-        header.setPadding(0, 0, 0, dp(8));
+        header.setTextColor(0xFF1C1C1E);
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setPadding(0, 0, 0, dp(6));
         root.addView(header);
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("Pick which note to show on your home screen");
+        subtitle.setText("Choose a note to display on your Android home screen");
         subtitle.setTextSize(14);
-        subtitle.setTextColor(0xFF888888);
-        subtitle.setPadding(0, 0, 0, dp(24));
+        subtitle.setTextColor(0xFF8E8E93);
+        subtitle.setPadding(0, 0, 0, dp(20));
         root.addView(subtitle);
 
         ScrollView scroll = new ScrollView(this);
+        scroll.setScrollbarFadingEnabled(true);
         LinearLayout listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
 
-        // "Create New Note" option
-        LinearLayout newNoteCard = createNoteCard("📝", "New Blank Note", "Creates a new note and shows it", "yellow");
-        newNoteCard.setOnClickListener(v -> {
-            selectNote("__new__", "yellow");
-        });
+        // "Create New Blank Note" option
+        LinearLayout newNoteCard = createNoteCard("➕", "Create New Note", "Tap to start a new blank note", "yellow");
+        newNoteCard.setOnClickListener(v -> selectNote("__new__", "yellow"));
         listContainer.addView(newNoteCard);
 
-        // Get existing notes
+        // Existing notes list
         List<String[]> notes = WidgetDataHelper.getNotesList(this);
 
-        if (notes.isEmpty()) {
-            TextView empty = new TextView(this);
-            empty.setText("No notes yet. The widget will show a blank note — open the app to add content!");
-            empty.setTextSize(14);
-            empty.setTextColor(0xFF999999);
-            empty.setPadding(dp(16), dp(24), dp(16), dp(16));
-            listContainer.addView(empty);
-        } else {
+        if (!notes.isEmpty()) {
+            TextView sectionHeader = new TextView(this);
+            sectionHeader.setText("EXISTING NOTES (" + notes.size() + ")");
+            sectionHeader.setTextSize(12);
+            sectionHeader.setTextColor(0xFF8E8E93);
+            sectionHeader.setTypeface(null, android.graphics.Typeface.BOLD);
+            sectionHeader.setPadding(0, dp(14), 0, dp(10));
+            listContainer.addView(sectionHeader);
+
             for (String[] note : notes) {
                 String id = note[0];
                 String title = note[1];
                 String color = note[2];
                 String preview = note[3];
 
-                LinearLayout card = createNoteCard("", title.isEmpty() ? "Untitled" : title, preview, color);
+                LinearLayout card = createNoteCard("📝", title, preview, color);
                 card.setOnClickListener(v -> selectNote(id, color));
                 listContainer.addView(card);
             }
@@ -115,18 +113,19 @@ public class StickyNoteWidgetConfig extends Activity {
 
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setColor(bgColor);
-        bg.setCornerRadius(dp(12));
+        bg.setCornerRadius(dp(16));
+        bg.setStroke(dp(1), 0x15000000);
         card.setBackground(bg);
 
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        cardParams.setMargins(0, 0, 0, dp(10));
+        cardParams.setMargins(0, 0, 0, dp(12));
         card.setLayoutParams(cardParams);
         card.setElevation(dp(2));
 
         TextView titleView = new TextView(this);
-        titleView.setText((emoji.isEmpty() ? "" : emoji + " ") + title);
+        titleView.setText(emoji + "  " + title);
         titleView.setTextSize(16);
         titleView.setTextColor(textColor);
         titleView.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -137,8 +136,8 @@ public class StickyNoteWidgetConfig extends Activity {
             subtitleView.setText(subtitle);
             subtitleView.setTextSize(13);
             subtitleView.setTextColor(textColor);
-            subtitleView.setAlpha(0.7f);
-            subtitleView.setPadding(0, dp(4), 0, 0);
+            subtitleView.setAlpha(0.75f);
+            subtitleView.setPadding(dp(24), dp(4), 0, 0);
             subtitleView.setMaxLines(2);
             card.addView(subtitleView);
         }
@@ -148,25 +147,17 @@ public class StickyNoteWidgetConfig extends Activity {
 
     private void selectNote(String noteId, String color) {
         if (noteId.equals("__new__")) {
-            // Generate a simple new note ID
-            String newId = "widget-" + System.currentTimeMillis();
-            // Create a minimal note in SharedPreferences
+            String newId = "note-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
             try {
                 org.json.JSONArray notes = new org.json.JSONArray(WidgetDataHelper.getNotesData(this));
                 org.json.JSONObject newNote = new org.json.JSONObject();
                 newNote.put("id", newId);
-                newNote.put("title", "");
-                newNote.put("content", "");
+                newNote.put("title", "New Note");
+                newNote.put("content", "<p></p>");
                 newNote.put("color", color);
                 newNote.put("category", "");
                 newNote.put("pinned", false);
-                newNote.put("fontSize", 14);
-                newNote.put("rotation", "0");
-                newNote.put("x", 20);
-                newNote.put("y", 80);
-                newNote.put("width", 220);
-                newNote.put("height", 200);
-                newNote.put("zIndex", System.currentTimeMillis());
+                newNote.put("fontSize", 15);
                 String now = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(new java.util.Date());
                 newNote.put("createdAt", now);
                 newNote.put("updatedAt", now);
@@ -180,11 +171,11 @@ public class StickyNoteWidgetConfig extends Activity {
 
         WidgetDataHelper.setWidgetNoteId(this, appWidgetId, noteId);
 
-        // Update the widget
+        // Update the widget immediately
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
         StickyNoteWidget.updateWidget(this, appWidgetManager, appWidgetId);
 
-        // Return success
+        // Return success to launcher
         Intent resultValue = new Intent();
         resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         setResult(RESULT_OK, resultValue);

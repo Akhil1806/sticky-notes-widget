@@ -11,7 +11,7 @@
   --bg-card: #FFFFFF;
   --bg-surface: #FFFFFF;
   --bg-elevated: #FFFFFF;
-  --bg-header: rgba(246, 244, 238, 0.88);
+  --bg-header: rgba(246, 244, 238, 0.92);
   --border-subtle: rgba(0, 0, 0, 0.08);
   --border-card: rgba(0, 0, 0, 0.06);
 
@@ -52,7 +52,7 @@
     --bg-card: #1C1C1E;
     --bg-surface: #1C1C1E;
     --bg-elevated: #2C2C2E;
-    --bg-header: rgba(18, 18, 20, 0.88);
+    --bg-header: rgba(18, 18, 20, 0.92);
     --border-subtle: rgba(255, 255, 255, 0.1);
     --border-card: rgba(255, 255, 255, 0.06);
 
@@ -388,7 +388,7 @@ input, textarea {
 
 .notes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
   gap: 14px;
 }
 
@@ -521,7 +521,7 @@ input, textarea {
   color: var(--danger-color);
 }
 
-/* Card Body & Interactive Checklists */
+/* Card Body & Rich Content */
 .card-body-preview {
   flex: 1;
   font-size: 14px;
@@ -549,41 +549,101 @@ input, textarea {
   margin-bottom: 6px;
 }
 
-/* Task lists on Card */
-.card-rendered-html ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
+/* Unified Single Checkbox Architecture (Eliminates CSS Collisions) */
+ul[data-type="taskList"] {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 4px 0 !important;
 }
 
-.card-rendered-html li[data-type="taskItem"],
-.card-rendered-html li[data-list] {
+li[data-type="taskItem"] {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  padding: 3px 0 !important;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Hide any duplicate ::before pseudo elements */
+li[data-type="taskItem"]::before,
+.card-rendered-html li[data-type="taskItem"]::before {
+  display: none !important;
+  content: "" !important;
+}
+
+li[data-type="taskItem"] > label {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+li[data-type="taskItem"] > label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 2px solid currentColor;
+  opacity: 0.75;
+  background: transparent;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: all 0.15s ease;
+  margin: 0;
+}
+
+li[data-type="taskItem"] > label input[type="checkbox"]:checked,
+li[data-type="taskItem"][data-checked="true"] > label input[type="checkbox"] {
+  background: #34C759;
+  border-color: #34C759;
+  opacity: 1;
+}
+
+li[data-type="taskItem"] > label input[type="checkbox"]:checked::after,
+li[data-type="taskItem"][data-checked="true"] > label input[type="checkbox"]::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid #FFFFFF;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  display: block;
+}
+
+li[data-type="taskItem"][data-checked="true"] > div {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+li[data-type="taskItem"] > div {
+  flex: 1;
+}
+
+/* Legacy checklist fallback (for old notes) */
+li[data-list]:not([data-type="taskItem"]) {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 3px 0;
-  cursor: pointer;
+  gap: 6px;
 }
 
-.card-rendered-html li[data-type="taskItem"]::before,
-.card-rendered-html li[data-list="unchecked"]::before {
+li[data-list="unchecked"]:not([data-type="taskItem"])::before {
   content: '☐';
   font-size: 16px;
-  line-height: 1;
   color: currentColor;
   opacity: 0.8;
 }
 
-.card-rendered-html li[data-type="taskItem"][data-checked="true"]::before,
-.card-rendered-html li[data-list="checked"]::before {
+li[data-list="checked"]:not([data-type="taskItem"])::before {
   content: '☑';
   font-size: 16px;
-  line-height: 1;
   color: #34C759;
-  opacity: 1;
 }
 
-.card-rendered-html li[data-type="taskItem"][data-checked="true"],
-.card-rendered-html li[data-list="checked"] {
+li[data-list="checked"]:not([data-type="taskItem"]) {
   text-decoration: line-through;
   opacity: 0.55;
 }
@@ -1091,63 +1151,6 @@ input, textarea {
   margin: 12px 0;
   opacity: 0.8;
   font-style: italic;
-}
-
-/* Tiptap Task List / Checklists */
-ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
-}
-
-li[data-type="taskItem"] {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-li[data-type="taskItem"] > label {
-  user-select: none;
-  margin-top: 3px;
-  display: flex;
-  align-items: center;
-}
-
-li[data-type="taskItem"] > label input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  border: 2px solid currentColor;
-  background: transparent;
-  cursor: pointer;
-  display: inline-grid;
-  place-content: center;
-  transition: all 0.15s ease;
-}
-
-li[data-type="taskItem"] > label input[type="checkbox"]:checked {
-  background: #34C759;
-  border-color: #34C759;
-}
-
-li[data-type="taskItem"] > label input[type="checkbox"]:checked::after {
-  content: '';
-  width: 5px;
-  height: 9px;
-  border: solid #FFFFFF;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg) translate(-1px, -1px);
-}
-
-li[data-type="taskItem"][data-checked="true"] > div {
-  text-decoration: line-through;
-  opacity: 0.55;
-}
-
-li[data-type="taskItem"] > div {
-  flex: 1;
 }
 
 /* Apple Floating Formatting Bar */

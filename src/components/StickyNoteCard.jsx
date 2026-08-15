@@ -42,36 +42,32 @@ export default function StickyNoteCard({
 
   const colorScheme = COLOR_HEX[note.color] || COLOR_HEX.yellow;
 
-  // Sanitize content and attach click handlers for checkboxes
+  // Sanitize content and preserve Tiptap task item attributes
   const sanitizedContent = useMemo(() => {
-    if (!note.content || note.content === '<p><br></p>') return '';
+    if (!note.content || note.content === '<p><br></p>' || note.content === '<p></p>') return '';
     return DOMPurify.sanitize(note.content, {
       USE_PROFILES: { html: true },
-      ADD_ATTR: ['data-type', 'data-checked', 'data-list'],
+      ADD_ATTR: ['data-type', 'data-checked', 'data-list', 'checked'],
     });
   }, [note.content]);
 
   // Handle card click (delegating checkbox clicks vs modal opening)
   const handleCardClick = (e) => {
-    // If clicked on a checklist item checkbox
     const taskItem = e.target.closest('li[data-type="taskItem"], li[data-list]');
-    const inputCheckbox = e.target.closest('input[type="checkbox"]');
+    const isCheckTarget = e.target.closest('label, input[type="checkbox"]');
 
-    if (inputCheckbox || e.target.matches('li[data-type="taskItem"]::before, li[data-list]::before') || e.target.classList.contains('task-checkbox-marker')) {
+    if (isCheckTarget && taskItem && taskItem.parentNode) {
       e.stopPropagation();
       e.preventDefault();
-      // Find item index
-      if (taskItem && taskItem.parentNode) {
-        const allItems = Array.from(taskItem.parentNode.children);
-        const idx = allItems.indexOf(taskItem);
-        if (idx !== -1) {
-          onToggleChecklist(note.id, idx);
-          return;
-        }
+      const allItems = Array.from(taskItem.parentNode.children);
+      const idx = allItems.indexOf(taskItem);
+      if (idx !== -1) {
+        onToggleChecklist(note.id, idx);
+        return;
       }
     }
 
-    if (e.target.closest('.card-menu') || e.target.closest('.card-action-btn')) {
+    if (e.target.closest('.card-menu-container') || e.target.closest('.card-action-btn') || e.target.closest('.card-dropdown')) {
       return;
     }
 

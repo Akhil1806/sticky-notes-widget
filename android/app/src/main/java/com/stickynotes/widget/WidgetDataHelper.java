@@ -13,65 +13,76 @@ public class WidgetDataHelper {
     private static final String KEY_NOTES = "notes_data";
     private static final String KEY_WIDGET_PREFIX = "widget_note_";
 
-    // Save all notes data (called from Capacitor plugin when notes change)
+    // Save all notes data synchronously to disk so widgets update immediately
     public static void saveNotesData(Context context, String jsonData) {
+        if (context == null || jsonData == null) return;
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(KEY_NOTES, jsonData).apply();
+        prefs.edit().putString(KEY_NOTES, jsonData).commit();
     }
 
     // Get all notes as JSON string
     public static String getNotesData(Context context) {
+        if (context == null) return "[]";
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(KEY_NOTES, "[]");
     }
 
     // Map a widget ID to a specific note ID
     public static void setWidgetNoteId(Context context, int widgetId, String noteId) {
+        if (context == null) return;
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(KEY_WIDGET_PREFIX + widgetId, noteId).apply();
+        prefs.edit().putString(KEY_WIDGET_PREFIX + widgetId, noteId).commit();
     }
 
     // Get the note ID for a widget
     public static String getWidgetNoteId(Context context, int widgetId) {
+        if (context == null) return null;
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(KEY_WIDGET_PREFIX + widgetId, null);
     }
 
     // Remove widget mapping on delete
     public static void removeWidgetNoteId(Context context, int widgetId) {
+        if (context == null) return;
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().remove(KEY_WIDGET_PREFIX + widgetId).apply();
+        prefs.edit().remove(KEY_WIDGET_PREFIX + widgetId).commit();
     }
 
-    // Get a specific note by ID from the stored JSON data
-    public static JSONObject getNoteById(Context context, String noteId) {
+    // Parse JSON data safely into JSONArray
+    private static JSONArray parseNotesArray(String data) {
+        if (data == null || data.trim().isEmpty()) return new JSONArray();
         try {
-            String data = getNotesData(context);
-            JSONArray notes = null;
-            if (data != null && data.trim().startsWith("{")) {
-                JSONObject obj = new JSONObject(data);
-                // Try to find an array inside the object
+            String trimmed = data.trim();
+            if (trimmed.startsWith("{")) {
+                JSONObject obj = new JSONObject(trimmed);
                 if (obj.has("notes")) {
-                    notes = obj.getJSONArray("notes");
+                    return obj.getJSONArray("notes");
                 } else if (obj.has("data")) {
-                    // Try to parse the "data" field as a string if it is one
                     Object dataObj = obj.get("data");
                     if (dataObj instanceof String) {
-                        notes = new JSONArray((String) dataObj);
+                        return new JSONArray((String) dataObj);
                     } else if (dataObj instanceof JSONArray) {
-                        notes = (JSONArray) dataObj;
+                        return (JSONArray) dataObj;
                     }
                 }
-            } else {
-                notes = new JSONArray(data);
+            } else if (trimmed.startsWith("[")) {
+                return new JSONArray(trimmed);
             }
-            
-            if (notes != null) {
-                for (int i = 0; i < notes.length(); i++) {
-                    JSONObject note = notes.getJSONObject(i);
-                    if (note.getString("id").equals(noteId)) {
-                        return note;
-                    }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return new JSONArray();
+    }
+
+    // Get a specific note by ID from stored JSON data
+    public static JSONObject getNoteById(Context context, String noteId) {
+        if (noteId == null || noteId.isEmpty()) return null;
+        try {
+            JSONArray notes = parseNotesArray(getNotesData(context));
+            for (int i = 0; i < notes.length(); i++) {
+                JSONObject note = notes.getJSONObject(i);
+                if (noteId.equals(note.optString("id", ""))) {
+                    return note;
                 }
             }
         } catch (JSONException e) {
@@ -80,80 +91,32 @@ public class WidgetDataHelper {
         return null;
     }
 
-    // Update a single note
-    public static void updateNote(Context context, String noteId, String newContent) {
-        try {
-            String data = getNotesData(context);
-            JSONArray notes = null;
-            if (data != null && data.trim().startsWith("{")) {
-                JSONObject obj = new JSONObject(data);
-                if (obj.has("notes")) {
-                    notes = obj.getJSONArray("notes");
-                } else if (obj.has("data")) {
-                    Object dataObj = obj.get("data");
-                    if (dataObj instanceof String) {
-                        notes = new JSONArray((String) dataObj);
-                    } else if (dataObj instanceof JSONArray) {
-                        notes = (JSONArray) dataObj;
-                    }
-                }
-            } else {
-                notes = new JSONArray(data);
-            }
-            
-            if (notes != null) {
-                for (int i = 0; i < notes.length(); i++) {
-                    JSONObject note = notes.getJSONObject(i);
-                    if (note.getString("id").equals(noteId)) {
-                        note.put("content", newContent);
-                        
-                        String now = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(new java.util.Date());
-                        note.put("updatedAt", now);
-                        
-                        saveNotesData(context, notes.toString());
-                        return;
-                    }
-                }
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Get list of all notes (id, title, color, content preview)
+    // Get list of all notes for widget configuration chooser
     public static List<String[]> getNotesList(Context context) {
         List<String[]> list = new ArrayList<>();
         try {
-            String data = getNotesData(context);
-            JSONArray notes = null;
-            if (data != null && data.trim().startsWith("{")) {
-                JSONObject obj = new JSONObject(data);
-                if (obj.has("notes")) {
-                    notes = obj.getJSONArray("notes");
-                } else if (obj.has("data")) {
-                    Object dataObj = obj.get("data");
-                    if (dataObj instanceof String) {
-                        notes = new JSONArray((String) dataObj);
-                    } else if (dataObj instanceof JSONArray) {
-                        notes = (JSONArray) dataObj;
+            JSONArray notes = parseNotesArray(getNotesData(context));
+            for (int i = 0; i < notes.length(); i++) {
+                JSONObject note = notes.getJSONObject(i);
+                String id = note.optString("id", "");
+                String rawTitle = note.optString("title", "").trim();
+                String color = note.optString("color", "yellow");
+                String rawContent = note.optString("content", "");
+
+                // Clean content for readable preview
+                String cleanContent = cleanPreviewText(rawContent);
+
+                String displayTitle = rawTitle;
+                if (displayTitle.isEmpty()) {
+                    if (!cleanContent.isEmpty()) {
+                        String firstLine = cleanContent.split("\n")[0].trim();
+                        displayTitle = firstLine.length() > 30 ? firstLine.substring(0, 30) + "..." : firstLine;
+                    } else {
+                        displayTitle = "Untitled Note";
                     }
                 }
-            } else {
-                notes = new JSONArray(data);
-            }
-            
-            if (notes != null) {
-                for (int i = 0; i < notes.length(); i++) {
-                    JSONObject note = notes.getJSONObject(i);
-                    String id = note.optString("id", "");
-                    String title = note.optString("title", "Untitled");
-                    String color = note.optString("color", "yellow");
-                    String content = note.optString("content", "");
-                    // Strip HTML tags for preview
-                    content = content.replaceAll("<[^>]*>", "").replaceAll("&nbsp;", " ").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">").trim();
-                    if (content.length() > 50) content = content.substring(0, 50) + "...";
-                    list.add(new String[]{id, title, color, content});
-                }
+
+                list.add(new String[]{id, displayTitle, color, cleanContent});
             }
         } catch (JSONException e) {
             e.printStackTrace();
@@ -161,7 +124,37 @@ public class WidgetDataHelper {
         return list;
     }
 
-    // Get color resource value from note color name
+    // Clean HTML to readable plain text preview with task symbols
+    public static String cleanPreviewText(String html) {
+        if (html == null || html.isEmpty()) return "";
+        String text = html;
+
+        // Replace task items with clean checklist symbols
+        text = text.replaceAll("(?i)<li[^>]*data-checked=[\"']true[\"'][^>]*>", "\u2611 ");
+        text = text.replaceAll("(?i)<li[^>]*data-checked=[\"']false[\"'][^>]*>", "\u2610 ");
+        text = text.replaceAll("(?i)<li[^>]*data-list=[\"']checked[\"'][^>]*>", "\u2611 ");
+        text = text.replaceAll("(?i)<li[^>]*data-list=[\"']unchecked[\"'][^>]*>", "\u2610 ");
+        text = text.replaceAll("(?i)<p>", "");
+        text = text.replaceAll("(?i)</p>", "\n");
+        text = text.replaceAll("(?i)<br\\s*/?>", "\n");
+        text = text.replaceAll("(?i)</li>", "\n");
+
+        // Strip all other HTML tags
+        text = text.replaceAll("<[^>]*>", " ")
+                   .replaceAll("&nbsp;", " ")
+                   .replaceAll("&amp;", "&")
+                   .replaceAll("&lt;", "<")
+                   .replaceAll("&gt;", ">")
+                   .replaceAll("\\s+", " ")
+                   .trim();
+
+        if (text.length() > 60) {
+            text = text.substring(0, 60) + "...";
+        }
+        return text;
+    }
+
+    // Color resource value from note color name
     public static int getColorForTheme(String colorName) {
         switch (colorName != null ? colorName : "yellow") {
             case "coral": return 0xFFFFCDD2;

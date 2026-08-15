@@ -7,8 +7,14 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
         registerPlugin(WidgetPlugin.class);
+        super.onCreate(savedInstanceState);
+
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("noteId")) {
+            String noteId = intent.getStringExtra("noteId");
+            WidgetPlugin.notifyLaunchIntent(noteId);
+        }
     }
 
     @Override
