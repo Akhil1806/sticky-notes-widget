@@ -114,7 +114,7 @@ public class EditNoteActivity extends Activity {
         formatBar.setPadding(0, dp(6), 0, dp(6));
 
         String[][] fmtBtns = {
-            {"B", "bold"}, {"I", "italic"}, {"\u2022", "list"}, {"\u2611", "checklist"}
+            {"B", "bold"}, {"I", "italic"}, {"\u2022", "list"}, {"\u2611", "checklist"}, {"\uD83D\uDD17", "link"}
         };
         for (String[] fb : fmtBtns) {
             Button btn = new Button(this);
@@ -142,6 +142,55 @@ public class EditNoteActivity extends Activity {
             formatBar.addView(btn);
         }
         root.addView(formatBar);
+
+        // === Text size controls ===
+        LinearLayout sizeRow = new LinearLayout(this);
+        sizeRow.setOrientation(LinearLayout.HORIZONTAL);
+        sizeRow.setGravity(android.view.Gravity.CENTER);
+        sizeRow.setPadding(0, 0, 0, dp(4));
+
+        final int[] currentFontSize = {note.optInt("fontSize", 15)};
+
+        Button sizeDown = new Button(this);
+        sizeDown.setText("A−");
+        sizeDown.setTextSize(14);
+        sizeDown.setTextColor(textColor);
+        sizeDown.setBackgroundColor(Color.TRANSPARENT);
+        sizeDown.setPadding(dp(12), dp(4), dp(12), dp(4));
+
+        final TextView sizeLabel = new TextView(this);
+        sizeLabel.setText(String.valueOf(currentFontSize[0]));
+        sizeLabel.setTextSize(13);
+        sizeLabel.setTextColor(textColor);
+        sizeLabel.setPadding(dp(8), 0, dp(8), 0);
+        sizeLabel.setGravity(android.view.Gravity.CENTER);
+
+        Button sizeUp = new Button(this);
+        sizeUp.setText("A+");
+        sizeUp.setTextSize(14);
+        sizeUp.setTextColor(textColor);
+        sizeUp.setBackgroundColor(Color.TRANSPARENT);
+        sizeUp.setPadding(dp(12), dp(4), dp(12), dp(4));
+
+        sizeDown.setOnClickListener(v2 -> {
+            if (currentFontSize[0] > 10) {
+                currentFontSize[0]--;
+                sizeLabel.setText(String.valueOf(currentFontSize[0]));
+                webView.evaluateJavascript("setFontSize(" + currentFontSize[0] + ");", null);
+            }
+        });
+        sizeUp.setOnClickListener(v2 -> {
+            if (currentFontSize[0] < 24) {
+                currentFontSize[0]++;
+                sizeLabel.setText(String.valueOf(currentFontSize[0]));
+                webView.evaluateJavascript("setFontSize(" + currentFontSize[0] + ");", null);
+            }
+        });
+
+        sizeRow.addView(sizeDown);
+        sizeRow.addView(sizeLabel);
+        sizeRow.addView(sizeUp);
+        root.addView(sizeRow);
 
         // === WebView editor ===
         webView = new WebView(this);
@@ -233,6 +282,7 @@ public class EditNoteActivity extends Activity {
                         n.put("content", html);
                         n.put("title", titleField.getText().toString().trim());
                         n.put("color", currentColorName);
+                        n.put("fontSize", currentFontSize[0]);
                         String now = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
                                 .format(new java.util.Date());
                         n.put("updatedAt", now);

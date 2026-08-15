@@ -24,8 +24,31 @@
       outline: none;
     }
     .ql-editor p { margin: 0 0 0.3em 0; }
-    .ql-editor ol, .ql-editor ul { padding-left: 1.5em; margin: 0.2em 0; }
-    .ql-editor li { padding: 0.1em 0; }
+    .ql-editor ol, .ql-editor ul { padding-left: 1em !important; margin: 0.2em 0; }
+    .ql-editor li { padding: 0.15em 0; padding-left: 0 !important; }
+    .ql-editor li[data-list=checked],
+    .ql-editor li[data-list=unchecked] {
+      padding-left: 2em !important;
+      position: relative;
+      list-style: none;
+      cursor: pointer;
+    }
+    .ql-editor li[data-list=checked]::before {
+      content: '\2611' !important;
+      position: absolute;
+      left: 0;
+      font-size: 1.4em;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .ql-editor li[data-list=unchecked]::before {
+      content: '\2610' !important;
+      position: absolute;
+      left: 0;
+      font-size: 1.4em;
+      line-height: 1;
+      cursor: pointer;
+    }
     .ql-editor li[data-list=checked] { text-decoration: line-through; opacity: 0.55; }
     .ql-editor li[data-list=unchecked] { opacity: 1; }
     .ql-editor.ql-blank::before {
@@ -34,8 +57,7 @@
     }
     .ql-snow .ql-editor strong { font-weight: 700; }
     .ql-snow .ql-editor em { font-style: italic; }
-
-    /* Hide the default toolbar */
+    .ql-editor a { color: #1a73e8; text-decoration: underline; }
     .ql-toolbar { display: none !important; }
   </style>
 </head>
@@ -63,7 +85,6 @@
 
     function getHtml() {
       var html = quill.root.innerHTML;
-      // Return empty string instead of Quill's default empty state
       if (html === '<p><br></p>') return '';
       return html;
     }
@@ -80,7 +101,21 @@
         quill.format('list', fmt.list === 'bullet' ? false : 'bullet');
       } else if (type === 'checklist') {
         quill.format('list', (fmt.list === 'checked' || fmt.list === 'unchecked') ? false : 'unchecked');
+      } else if (type === 'link') {
+        if (range && range.length > 0) {
+          var url = prompt('Enter URL:');
+          if (url) quill.format('link', url);
+        } else {
+          var url2 = prompt('Enter URL:');
+          if (url2) {
+            quill.insertText(quill.getLength() - 1, url2, 'link', url2);
+          }
+        }
       }
+    }
+
+    function setFontSize(size) {
+      document.querySelector('.ql-editor').style.fontSize = size + 'px';
     }
   </script>
 </body>

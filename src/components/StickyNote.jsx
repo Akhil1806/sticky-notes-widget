@@ -35,16 +35,38 @@ const RESIZE_SVG = (
     <path d="M22 22L12 22M22 22L22 12M22 22L14 14"/><path d="M2 2L2 8M2 2L8 2M2 2L8 8" opacity="0.4"/>
   </svg>
 );
+const EDIT_SVG = (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+  </svg>
+);
+const STICKER_SVG = (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+  </svg>
+);
+const LINK_SVG = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+  </svg>
+);
 const BOLD_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z"/><path d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"/></svg>;
 const ITALIC_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>;
 const LIST_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg>;
 const CHECK_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>;
 
 const NOTE_COLORS = ['yellow', 'coral', 'mint', 'sky', 'lavender', 'peach', 'ocean', 'rose'];
+const STICKERS = ['', '📌', '⭐', '❤️', '🔥', '💡', '🎯', '✅', '🚀', '🎉', '📎'];
 
 const COLOR_HEX = {
   yellow: '#FFF9C4', coral: '#FFCDD2', mint: '#C8E6C9', sky: '#BBDEFB',
   lavender: '#E1BEE7', peach: '#FFE0B2', ocean: '#B2EBF2', rose: '#F8BBD0',
+};
+
+const quillModules = {
+  toolbar: false,
+  clipboard: { matchVisual: false },
 };
 
 export default function StickyNote({
@@ -62,6 +84,7 @@ export default function StickyNote({
 }) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showFormatBar, setShowFormatBar] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const noteRef = useRef(null);
@@ -115,11 +138,11 @@ export default function StickyNote({
     if (!isEditing) return;
     const handleClickOutside = (e) => {
       if (noteRef.current && !noteRef.current.contains(e.target)) {
-        // Only stop editing if clicking outside the color dropdown too
-        if (e.target.closest('.color-picker-dropdown') || e.target.closest('.ql-toolbar') || e.target.closest('.ql-tooltip')) return;
+        if (e.target.closest('.color-picker-dropdown') || e.target.closest('.sticker-picker-dropdown') || e.target.closest('.ql-toolbar') || e.target.closest('.ql-tooltip')) return;
         onStopEdit();
         setShowFormatBar(false);
         setShowColorPicker(false);
+        setShowStickerPicker(false);
       }
     };
     const timer = setTimeout(() => {
@@ -161,6 +184,11 @@ export default function StickyNote({
     setShowColorPicker(false);
   };
 
+  const handleStickerSelect = (sticker) => {
+    onUpdate(note.id, { sticker });
+    setShowStickerPicker(false);
+  };
+
   const insertFormatting = (type) => {
     if (!contentRef.current) return;
     const editor = contentRef.current.getEditor();
@@ -179,6 +207,20 @@ export default function StickyNote({
       case 'checklist':
         editor.format('list', (format.list === 'checked' || format.list === 'unchecked') ? false : 'check');
         break;
+      case 'link': {
+        const range = editor.getSelection();
+        if (range && range.length > 0) {
+          const url = prompt('Enter URL:');
+          if (url) editor.format('link', url);
+        } else {
+          const url = prompt('Enter URL:');
+          if (url) {
+            const label = prompt('Link text:', url) || url;
+            editor.insertText(editor.getLength() - 1, label, 'link', url);
+          }
+        }
+        break;
+      }
       default:
         break;
     }
@@ -220,6 +262,13 @@ export default function StickyNote({
       }}
       onClick={handleNoteClick}
     >
+      {/* Sticker (decorative, top-center) */}
+      {note.sticker && (
+        <div className="note-sticker" title="Sticker">
+          {note.sticker}
+        </div>
+      )}
+
       {/* Pin indicator */}
       {note.pinned && (
         <div className="pin-indicator" title="Pinned">
@@ -246,11 +295,27 @@ export default function StickyNote({
           </button>
           <button
             className="note-action-btn"
-            onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
+            onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); setShowStickerPicker(false); }}
             title="Change color"
           >
             {PALETTE_SVG}
           </button>
+          <button
+            className="note-action-btn"
+            onClick={(e) => { e.stopPropagation(); setShowStickerPicker(!showStickerPicker); setShowColorPicker(false); }}
+            title="Add sticker"
+          >
+            {STICKER_SVG}
+          </button>
+          {isEditing && (
+            <button
+              className={`note-action-btn ${showFormatBar ? 'active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setShowFormatBar(!showFormatBar); }}
+              title="Formatting tools"
+            >
+              {EDIT_SVG}
+            </button>
+          )}
           <button
             className="note-action-btn"
             onClick={(e) => { e.stopPropagation(); onDuplicate(note.id); }}
@@ -283,6 +348,22 @@ export default function StickyNote({
         </div>
       )}
 
+      {/* Sticker Picker Dropdown */}
+      {showStickerPicker && (
+        <div className="sticker-picker-dropdown" onClick={(e) => e.stopPropagation()}>
+          {STICKERS.map((s, i) => (
+            <button
+              key={i}
+              className={`sticker-option ${note.sticker === s ? 'selected' : ''}`}
+              onClick={() => handleStickerSelect(s)}
+              title={s || 'None'}
+            >
+              {s || '✕'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Title */}
       {isEditing ? (
         <input
@@ -300,13 +381,14 @@ export default function StickyNote({
         </div>
       )}
 
-      {/* Format Bar */}
-      {isEditing && (
+      {/* Format Bar — only when editing AND toggled on */}
+      {isEditing && showFormatBar && (
         <div className="format-bar">
           <button className="format-btn" onClick={() => insertFormatting('bold')} title="Bold">{BOLD_SVG}</button>
           <button className="format-btn" onClick={() => insertFormatting('italic')} title="Italic">{ITALIC_SVG}</button>
           <button className="format-btn" onClick={() => insertFormatting('list')} title="Bullet list">{LIST_SVG}</button>
           <button className="format-btn" onClick={() => insertFormatting('checklist')} title="Checklist">{CHECK_SVG}</button>
+          <button className="format-btn" onClick={() => insertFormatting('link')} title="Insert link">{LINK_SVG}</button>
           <div className="format-divider" />
           <button className="format-btn font-size-btn" onClick={fontSizeDown} title="Decrease font">A−</button>
           <span className="format-font-size">{note.fontSize || 14}</span>
@@ -325,7 +407,7 @@ export default function StickyNote({
             theme="snow"
             value={note.content || ''} 
             onChange={(val) => onUpdate(note.id, { content: val })} 
-            modules={{ toolbar: false }}
+            modules={quillModules}
             ref={contentRef}
             placeholder="Write something..."
           />
