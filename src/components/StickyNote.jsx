@@ -51,6 +51,13 @@ const LINK_SVG = (
     <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
   </svg>
 );
+const IMAGE_SVG = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+    <circle cx="8.5" cy="8.5" r="1.5"/>
+    <polyline points="21 15 16 10 5 21"/>
+  </svg>
+);
 const BOLD_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z"/><path d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"/></svg>;
 const ITALIC_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>;
 const LIST_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg>;
@@ -218,6 +225,13 @@ export default function StickyNote({
             const label = prompt('Link text:', url) || url;
             editor.insertText(editor.getLength() - 1, label, 'link', url);
           }
+        }
+        break;
+      }
+      case 'image': {
+        const url = prompt('Enter image URL:');
+        if (url) {
+          editor.insertEmbed(editor.getSelection()?.index || editor.getLength(), 'image', url);
         }
         break;
       }
@@ -389,6 +403,7 @@ export default function StickyNote({
           <button className="format-btn" onClick={() => insertFormatting('list')} title="Bullet list">{LIST_SVG}</button>
           <button className="format-btn" onClick={() => insertFormatting('checklist')} title="Checklist">{CHECK_SVG}</button>
           <button className="format-btn" onClick={() => insertFormatting('link')} title="Insert link">{LINK_SVG}</button>
+          <button className="format-btn" onClick={() => insertFormatting('image')} title="Insert image">{IMAGE_SVG}</button>
           <div className="format-divider" />
           <button className="format-btn font-size-btn" onClick={fontSizeDown} title="Decrease font">A−</button>
           <span className="format-font-size">{note.fontSize || 14}</span>

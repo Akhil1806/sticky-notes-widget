@@ -111,6 +111,12 @@
             quill.insertText(quill.getLength() - 1, url2, 'link', url2);
           }
         }
+      } else if (type === 'image') {
+        var url3 = prompt('Enter image URL:');
+        if (url3) {
+          var range3 = quill.getSelection(true);
+          quill.insertEmbed(range3 ? range3.index : quill.getLength(), 'image', url3);
+        }
       }
     }
 

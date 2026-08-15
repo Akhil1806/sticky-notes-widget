@@ -114,7 +114,7 @@ public class EditNoteActivity extends Activity {
         formatBar.setPadding(0, dp(6), 0, dp(6));
 
         String[][] fmtBtns = {
-            {"B", "bold"}, {"I", "italic"}, {"\u2022", "list"}, {"\u2611", "checklist"}, {"\uD83D\uDD17", "link"}
+            {"B", "bold"}, {"I", "italic"}, {"\u2022", "list"}, {"\u2611", "checklist"}, {"\uD83D\uDD17", "link"}, {"\uD83D\uDDBC", "image"}
         };
         for (String[] fb : fmtBtns) {
             Button btn = new Button(this);
