@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { syncNotesToWidget, getWidgetNotes } from '../plugins/widgetPlugin';
 
 const STORAGE_KEY = 'sticky-notes-data';
 const NOTE_COLORS = ['yellow', 'coral', 'mint', 'sky', 'lavender', 'peach', 'ocean', 'rose'];
@@ -68,11 +69,13 @@ export function useNotes() {
     notesLoaded.current = true;
   }, []);
 
-  // Save to localStorage on change
+  // Save to localStorage on change + sync to native widget
   useEffect(() => {
     if (notesLoaded.current) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+        // Sync to native Android widget
+        syncNotesToWidget(notes);
       } catch (e) {
         console.error('Failed to save notes:', e);
       }

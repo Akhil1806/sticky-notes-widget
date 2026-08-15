@@ -4,4 +4,7 @@
     <string name="title_activity_main">Sticky Notes</string>
     <string name="package_name">com.stickynotes.widget</string>
     <string name="custom_url_scheme">com.stickynotes.widget</string>
+    <string name="widget_description">Display a sticky note on your home screen</string>
+    <string name="widget_name">Sticky Note</string>
+    <string name="select_note">Select a Note</string>
 </resources>

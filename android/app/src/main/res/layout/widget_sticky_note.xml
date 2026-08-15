@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="#FFF9C4">
+
+    <!-- Title row -->
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📝 Sticky Note"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#3E2723"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingBottom="6dp" />
+
+    <!-- Content -->
+    <TextView
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="Tap to add content..."
+        android:textSize="13sp"
+        android:textColor="#3E2723"
+        android:lineSpacingMultiplier="1.3"
+        android:maxLines="8"
+        android:ellipsize="end"
+        android:gravity="top" />
+
+    <!-- Category tag -->
+    <TextView
+        android:id="@+id/widget_category"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:textColor="#3E2723"
+        android:alpha="0.6"
+        android:paddingTop="4dp"
+        android:paddingBottom="2dp"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp"
+        android:visibility="gone"
+        android:textAllCaps="true" />
+
+</LinearLayout>
