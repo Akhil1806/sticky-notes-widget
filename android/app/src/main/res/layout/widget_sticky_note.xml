@@ -3,9 +3,9 @@
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="6dp">
+    android:padding="4dp">
 
-    <!-- Background shape (tinted programmatically) -->
+    <!-- Card Background shape (tinted programmatically to exact pastel colors) -->
     <ImageView
         android:id="@+id/widget_bg_image"
         android:layout_width="match_parent"
@@ -13,7 +13,7 @@
         android:src="@drawable/widget_bg_shape"
         android:scaleType="fitXY" />
 
-    <!-- Content -->
+    <!-- Card Content Root (Matching exact in-app StickyNoteCard layout) -->
     <LinearLayout
         android:id="@+id/widget_root"
         android:layout_width="match_parent"
@@ -21,42 +21,94 @@
         android:orientation="vertical"
         android:padding="14dp">
 
-        <!-- Title -->
-        <TextView
-            android:id="@+id/widget_title"
+        <!-- Card Header: Title + Pin Indicator + Edit Action -->
+        <LinearLayout
+            android:id="@+id/widget_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:textColor="#3E2723"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:paddingBottom="6dp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="6dp">
 
-        <!-- Body content (RemoteViews compliant) -->
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#3E2723"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_pin_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📌"
+                android:textSize="12sp"
+                android:paddingStart="4dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/widget_edit_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✏️"
+                android:textSize="11sp"
+                android:alpha="0.55"
+                android:paddingStart="6dp" />
+        </LinearLayout>
+
+        <!-- Card Body: Formatted Rich Text, Checklists & Bullets -->
         <TextView
             android:id="@+id/widget_content"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:textSize="13sp"
+            android:textSize="13.5sp"
             android:textColor="#3E2723"
-            android:lineSpacingMultiplier="1.3"
+            android:lineSpacingMultiplier="1.35"
             android:ellipsize="end"
             android:gravity="top" />
 
-        <!-- Category tag -->
-        <TextView
-            android:id="@+id/widget_category"
-            android:layout_width="wrap_content"
+        <!-- Card Footer: Category Pill + Relative Timestamp -->
+        <LinearLayout
+            android:id="@+id/widget_footer"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textColor="#3E2723"
-            android:alpha="0.5"
-            android:paddingTop="4dp"
-            android:visibility="gone"
-            android:textAllCaps="true" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="6dp">
+
+            <TextView
+                android:id="@+id/widget_category"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/widget_tag_pill"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
+                android:textColor="#3E2723"
+                android:paddingStart="7dp"
+                android:paddingEnd="7dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/widget_timestamp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
+                android:textColor="#3E2723"
+                android:alpha="0.6" />
+        </LinearLayout>
 
     </LinearLayout>
 </FrameLayout>

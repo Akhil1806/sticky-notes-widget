@@ -6,8 +6,13 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.view.View;
 import android.widget.RemoteViews;
 import org.json.JSONObject;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,13 +40,18 @@ public class StickyNoteWidget extends AppWidgetProvider {
             int textColor = WidgetDataHelper.getTextColorForTheme("yellow");
 
             views.setInt(R.id.widget_bg_image, "setColorFilter", bgColor);
-            views.setViewVisibility(R.id.widget_title, android.view.View.VISIBLE);
+            views.setViewVisibility(R.id.widget_header, View.VISIBLE);
+            views.setViewVisibility(R.id.widget_title, View.VISIBLE);
             views.setTextViewText(R.id.widget_title, "Sticky Note");
             views.setTextColor(R.id.widget_title, textColor);
+            views.setViewVisibility(R.id.widget_pin_badge, View.GONE);
+            views.setViewVisibility(R.id.widget_edit_btn, View.VISIBLE);
 
             views.setTextViewText(R.id.widget_content, "Tap here to select or write a note for this widget.");
             views.setTextColor(R.id.widget_content, textColor);
-            views.setViewVisibility(R.id.widget_category, android.view.View.GONE);
+            views.setViewVisibility(R.id.widget_category, View.GONE);
+            views.setTextViewText(R.id.widget_timestamp, "Tap to setup");
+            views.setTextColor(R.id.widget_timestamp, textColor);
 
             // Tapping opens Config chooser
             Intent configIntent = new Intent(context, StickyNoteWidgetConfig.class);
@@ -61,7 +71,9 @@ public class StickyNoteWidget extends AppWidgetProvider {
         String title = note.optString("title", "").trim();
         String content = note.optString("content", "");
         String color = note.optString("color", "yellow");
-        String category = note.optString("category", "");
+        String category = note.optString("category", "").trim();
+        boolean pinned = note.optBoolean("pinned", false);
+        String updatedAt = note.optString("updatedAt", "");
 
         int bgColor = WidgetDataHelper.getColorForTheme(color);
         int textColor = WidgetDataHelper.getTextColorForTheme(color);
@@ -69,35 +81,46 @@ public class StickyNoteWidget extends AppWidgetProvider {
         // Background tint
         views.setInt(R.id.widget_bg_image, "setColorFilter", bgColor);
 
-        // Title
+        // Card Header: Title + Pin Badge + Edit Indicator
+        views.setViewVisibility(R.id.widget_header, View.VISIBLE);
         if (!title.isEmpty()) {
             views.setTextViewText(R.id.widget_title, title);
             views.setTextColor(R.id.widget_title, textColor);
-            views.setViewVisibility(R.id.widget_title, android.view.View.VISIBLE);
+            views.setViewVisibility(R.id.widget_title, View.VISIBLE);
         } else {
-            views.setViewVisibility(R.id.widget_title, android.view.View.GONE);
+            views.setTextViewText(R.id.widget_title, "Untitled");
+            views.setTextColor(R.id.widget_title, textColor);
+            views.setViewVisibility(R.id.widget_title, View.VISIBLE);
         }
 
-        // Content — parse rich text and Tiptap task lists onto clean single lines
+        views.setViewVisibility(R.id.widget_pin_badge, pinned ? View.VISIBLE : View.GONE);
+        views.setTextColor(R.id.widget_edit_btn, textColor);
+
+        // Card Body: Formatted Rich Text / Checklists
         CharSequence displayContent;
         if (content.isEmpty() || content.equals("<p></p>") || content.equals("<p><br></p>")) {
-            displayContent = "Tap to write note...";
+            displayContent = "Empty note. Tap to write...";
         } else {
             displayContent = parseHtmlContent(content);
         }
         views.setTextViewText(R.id.widget_content, displayContent);
         views.setTextColor(R.id.widget_content, textColor);
 
-        // Category Tag
+        // Card Footer: Category Pill
         if (!category.isEmpty()) {
-            views.setTextViewText(R.id.widget_category, "#" + category.toUpperCase());
+            views.setTextViewText(R.id.widget_category, "#" + category.toLowerCase());
             views.setTextColor(R.id.widget_category, textColor);
-            views.setViewVisibility(R.id.widget_category, android.view.View.VISIBLE);
+            views.setViewVisibility(R.id.widget_category, View.VISIBLE);
         } else {
-            views.setViewVisibility(R.id.widget_category, android.view.View.GONE);
+            views.setViewVisibility(R.id.widget_category, View.GONE);
         }
 
-        // Deep link click -> Open main app with noteId to launch instant editor
+        // Card Footer: Relative Timestamp
+        String relTime = timeAgo(updatedAt);
+        views.setTextViewText(R.id.widget_timestamp, relTime);
+        views.setTextColor(R.id.widget_timestamp, textColor);
+
+        // Deep link click -> Open main app directly into modal editor for this note
         Intent appIntent = new Intent(context, MainActivity.class);
         appIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         appIntent.putExtra("noteId", noteId);
@@ -128,7 +151,7 @@ public class StickyNoteWidget extends AppWidgetProvider {
 
     /**
      * Convert Tiptap / Quill HTML into formatted Spanned text with inline checkboxes and strikethrough.
-     * Ensures checkboxes and text stay on the SAME line without wrapping.
+     * Matches the visual design of the in-app StickyNoteCard.
      */
     public static CharSequence parseHtmlContent(String html) {
         if (html == null || html.trim().isEmpty()) return "";
@@ -230,5 +253,26 @@ public class StickyNoteWidget extends AppWidgetProvider {
     private static String cleanInnerHtml(String inner) {
         if (inner == null) return "";
         return inner.replaceAll("(?is)</?(p|div|span)[^>]*?>", "").trim();
+    }
+
+    private static String timeAgo(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) return "";
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            Date date = sdf.parse(dateStr);
+            if (date == null) return "";
+            long diff = System.currentTimeMillis() - date.getTime();
+            long mins = diff / (60 * 1000);
+            if (mins < 1) return "just now";
+            if (mins < 60) return mins + "m ago";
+            long hrs = mins / 60;
+            if (hrs < 24) return hrs + "h ago";
+            long days = hrs / 24;
+            if (days == 1) return "yesterday";
+            return days + "d ago";
+        } catch (Exception e) {
+            return "";
+        }
     }
 }
