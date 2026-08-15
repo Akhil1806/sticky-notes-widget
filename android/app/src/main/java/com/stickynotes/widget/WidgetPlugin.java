@@ -35,4 +35,16 @@ public class WidgetPlugin extends Plugin {
         ret.put("data", data);
         call.resolve(ret);
     }
+
+    @PluginMethod
+    public void getLaunchIntent(PluginCall call) {
+        android.content.Intent intent = getActivity().getIntent();
+        String noteId = null;
+        if (intent != null && intent.hasExtra("noteId")) {
+            noteId = intent.getStringExtra("noteId");
+        }
+        JSObject ret = new JSObject();
+        ret.put("noteId", noteId != null ? noteId : "");
+        call.resolve(ret);
+    }
 }

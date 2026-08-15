@@ -37,10 +37,10 @@ public class StickyNoteWidget extends AppWidgetProvider {
             }
         }
 
-        // Set background color
+        // Set background color using the ImageView tint
         int bgColor = WidgetDataHelper.getColorForTheme(color);
         int textColor = WidgetDataHelper.getTextColorForTheme(color);
-        views.setInt(R.id.widget_root, "setBackgroundColor", bgColor);
+        views.setInt(R.id.widget_bg_image, "setColorFilter", bgColor);
         views.setTextViewText(R.id.widget_title, title.isEmpty() ? "📝 Sticky Note" : title);
         views.setTextViewText(R.id.widget_content, content.isEmpty() ? "Tap to add content..." : content);
         views.setTextColor(R.id.widget_title, textColor);

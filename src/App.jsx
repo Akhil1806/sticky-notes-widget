@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNotes } from './hooks/useNotes';
+import { getLaunchIntent } from './plugins/widgetPlugin';
 import StickyNote from './components/StickyNote';
 import Toolbar from './components/Toolbar';
 import FAB from './components/FAB';
@@ -28,6 +29,16 @@ function App() {
   } = useNotes();
 
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'free'
+
+  useEffect(() => {
+    const checkIntent = async () => {
+      const intent = await getLaunchIntent();
+      if (intent && intent.noteId) {
+        setEditingNoteId(intent.noteId);
+      }
+    };
+    checkIntent();
+  }, [setEditingNoteId]);
 
   const handleExport = useCallback(() => {
     const data = allNotes.map((n) => ({

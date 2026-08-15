@@ -1,4 +1,4 @@
-import { registerPlugin } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /**
  * Capacitor plugin bridge for Android home screen widget.
@@ -16,7 +16,7 @@ const WidgetPlugin = registerPlugin('WidgetPlugin');
 export async function syncNotesToWidget(notes) {
   try {
     // Only run on Android with Capacitor
-    if (!window.Capacitor?.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform()) return;
 
     const data = JSON.stringify(notes);
     await WidgetPlugin.syncNotes({ data });
@@ -34,13 +34,22 @@ export async function syncNotesToWidget(notes) {
  */
 export async function getWidgetNotes() {
   try {
-    if (!window.Capacitor?.isNativePlatform()) return [];
+    if (!Capacitor.isNativePlatform()) return [];
 
     const result = await WidgetPlugin.getWidgetNotes();
     return JSON.parse(result.data || '[]');
   } catch (err) {
     console.warn('[Widget] Get failed:', err.message);
     return [];
+  }
+}
+
+export async function getLaunchIntent() {
+  try {
+    if (!Capacitor.isNativePlatform()) return { noteId: '' };
+    return await WidgetPlugin.getLaunchIntent();
+  } catch (err) {
+    return { noteId: '' };
   }
 }
 

@@ -62,6 +62,9 @@ export function useNotes() {
         setNotes(parsed);
         const maxZIndex = parsed.reduce((max, n) => Math.max(max, n.zIndex || 0), 1);
         setMaxZ(maxZIndex);
+        syncNotesToWidget(parsed);
+      } else {
+        syncNotesToWidget([]);
       }
     } catch (e) {
       console.error('Failed to load notes:', e);

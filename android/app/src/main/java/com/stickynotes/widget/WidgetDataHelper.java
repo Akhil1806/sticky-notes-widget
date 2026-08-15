@@ -47,11 +47,31 @@ public class WidgetDataHelper {
     public static JSONObject getNoteById(Context context, String noteId) {
         try {
             String data = getNotesData(context);
-            JSONArray notes = new JSONArray(data);
-            for (int i = 0; i < notes.length(); i++) {
-                JSONObject note = notes.getJSONObject(i);
-                if (note.getString("id").equals(noteId)) {
-                    return note;
+            JSONArray notes = null;
+            if (data != null && data.trim().startsWith("{")) {
+                JSONObject obj = new JSONObject(data);
+                // Try to find an array inside the object
+                if (obj.has("notes")) {
+                    notes = obj.getJSONArray("notes");
+                } else if (obj.has("data")) {
+                    // Try to parse the "data" field as a string if it is one
+                    Object dataObj = obj.get("data");
+                    if (dataObj instanceof String) {
+                        notes = new JSONArray((String) dataObj);
+                    } else if (dataObj instanceof JSONArray) {
+                        notes = (JSONArray) dataObj;
+                    }
+                }
+            } else {
+                notes = new JSONArray(data);
+            }
+            
+            if (notes != null) {
+                for (int i = 0; i < notes.length(); i++) {
+                    JSONObject note = notes.getJSONObject(i);
+                    if (note.getString("id").equals(noteId)) {
+                        return note;
+                    }
                 }
             }
         } catch (JSONException e) {
@@ -65,15 +85,33 @@ public class WidgetDataHelper {
         List<String[]> list = new ArrayList<>();
         try {
             String data = getNotesData(context);
-            JSONArray notes = new JSONArray(data);
-            for (int i = 0; i < notes.length(); i++) {
-                JSONObject note = notes.getJSONObject(i);
-                String id = note.optString("id", "");
-                String title = note.optString("title", "Untitled");
-                String color = note.optString("color", "yellow");
-                String content = note.optString("content", "");
-                if (content.length() > 50) content = content.substring(0, 50) + "...";
-                list.add(new String[]{id, title, color, content});
+            JSONArray notes = null;
+            if (data != null && data.trim().startsWith("{")) {
+                JSONObject obj = new JSONObject(data);
+                if (obj.has("notes")) {
+                    notes = obj.getJSONArray("notes");
+                } else if (obj.has("data")) {
+                    Object dataObj = obj.get("data");
+                    if (dataObj instanceof String) {
+                        notes = new JSONArray((String) dataObj);
+                    } else if (dataObj instanceof JSONArray) {
+                        notes = (JSONArray) dataObj;
+                    }
+                }
+            } else {
+                notes = new JSONArray(data);
+            }
+            
+            if (notes != null) {
+                for (int i = 0; i < notes.length(); i++) {
+                    JSONObject note = notes.getJSONObject(i);
+                    String id = note.optString("id", "");
+                    String title = note.optString("title", "Untitled");
+                    String color = note.optString("color", "yellow");
+                    String content = note.optString("content", "");
+                    if (content.length() > 50) content = content.substring(0, 50) + "...";
+                    list.add(new String[]{id, title, color, content});
+                }
             }
         } catch (JSONException e) {
             e.printStackTrace();
