@@ -1,59 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <script src="quill.min.js"></script>
   <link href="quill.snow.css" rel="stylesheet">
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: transparent; }
-    #editor { height: 100%; border: none !important; font-size: 16px; padding: 12px; }
-    .ql-container.ql-snow { border: none !important; }
-    .ql-editor { padding: 0 !important; }
-    .ql-editor p { margin-bottom: 0.5em; }
-    .ql-editor li[data-list=checked] { text-decoration: line-through; opacity: 0.6; }
-    .ql-editor.ql-blank::before { font-style: normal; color: #888; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #editor-container {
+      height: 100%; width: 100%;
+      display: flex; flex-direction: column;
+    }
+    .ql-container.ql-snow { border: none !important; flex: 1; overflow-y: auto; }
+    .ql-editor {
+      padding: 4px 0 !important;
+      font-size: 15px;
+      line-height: 1.6;
+      outline: none;
+    }
+    .ql-editor p { margin: 0 0 0.3em 0; }
+    .ql-editor ol, .ql-editor ul { padding-left: 1.5em; margin: 0.2em 0; }
+    .ql-editor li { padding: 0.1em 0; }
+    .ql-editor li[data-list=checked] { text-decoration: line-through; opacity: 0.55; }
+    .ql-editor li[data-list=unchecked] { opacity: 1; }
+    .ql-editor.ql-blank::before {
+      font-style: normal; color: rgba(0,0,0,0.35);
+      content: attr(data-placeholder);
+    }
+    .ql-snow .ql-editor strong { font-weight: 700; }
+    .ql-snow .ql-editor em { font-style: italic; }
+
+    /* Hide the default toolbar */
+    .ql-toolbar { display: none !important; }
   </style>
 </head>
 <body>
-  <div id="editor"></div>
+  <div id="editor-container">
+    <div id="editor"></div>
+  </div>
+  <script src="quill.min.js"></script>
   <script>
     var quill = new Quill('#editor', {
       theme: 'snow',
       modules: { toolbar: false },
       placeholder: 'Write something...'
     });
-    
-    // Called by Android to set content
-    function setHtml(html, colorHex, textColorHex) {
-      document.body.style.backgroundColor = colorHex;
-      document.body.style.color = textColorHex;
-      quill.root.innerHTML = html;
-    }
-    
-    // Called by Android to get content
-    function getHtml() {
-      return quill.root.innerHTML;
+
+    function setHtml(html, bgHex, textHex) {
+      document.body.style.backgroundColor = bgHex || 'transparent';
+      document.body.style.color = textHex || '#333';
+      quill.root.style.color = textHex || '#333';
+      if (html && html.length > 0) {
+        quill.root.innerHTML = html;
+      }
+      quill.focus();
     }
 
-    // Called by Android to format
+    function getHtml() {
+      var html = quill.root.innerHTML;
+      // Return empty string instead of Quill's default empty state
+      if (html === '<p><br></p>') return '';
+      return html;
+    }
+
     function format(type) {
-      var format = quill.getFormat();
+      var range = quill.getSelection(true);
+      if (!range) { quill.focus(); range = quill.getSelection(true); }
+      var fmt = quill.getFormat(range);
       if (type === 'bold') {
-        quill.format('bold', !format.bold);
+        quill.format('bold', !fmt.bold);
       } else if (type === 'italic') {
-        quill.format('italic', !format.italic);
+        quill.format('italic', !fmt.italic);
       } else if (type === 'list') {
-        quill.format('list', format.list === 'bullet' ? false : 'bullet');
+        quill.format('list', fmt.list === 'bullet' ? false : 'bullet');
       } else if (type === 'checklist') {
-        quill.format('list', (format.list === 'checked' || format.list === 'unchecked') ? false : 'check');
+        quill.format('list', (fmt.list === 'checked' || fmt.list === 'unchecked') ? false : 'unchecked');
       }
     }
-    
-    quill.on('text-change', function() {
-      if (window.AndroidInterface) {
-        window.AndroidInterface.onTextChanged();
-      }
-    });
   </script>
 </body>
 </html>

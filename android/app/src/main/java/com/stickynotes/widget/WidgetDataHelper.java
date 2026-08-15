@@ -149,6 +149,8 @@ public class WidgetDataHelper {
                     String title = note.optString("title", "Untitled");
                     String color = note.optString("color", "yellow");
                     String content = note.optString("content", "");
+                    // Strip HTML tags for preview
+                    content = content.replaceAll("<[^>]*>", "").replaceAll("&nbsp;", " ").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">").trim();
                     if (content.length() > 50) content = content.substring(0, 50) + "...";
                     list.add(new String[]{id, title, color, content});
                 }

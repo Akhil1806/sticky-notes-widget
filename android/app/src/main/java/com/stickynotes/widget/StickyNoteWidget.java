@@ -22,8 +22,8 @@ public class StickyNoteWidget extends AppWidgetProvider {
         String noteId = WidgetDataHelper.getWidgetNoteId(context, appWidgetId);
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_sticky_note);
 
-        String title = "Sticky Note";
-        String content = "Tap to open";
+        String title = "";
+        String content = "";
         String color = "yellow";
         String category = "";
 
@@ -37,23 +37,33 @@ public class StickyNoteWidget extends AppWidgetProvider {
             }
         }
 
-        // Set background color using the ImageView tint
         int bgColor = WidgetDataHelper.getColorForTheme(color);
         int textColor = WidgetDataHelper.getTextColorForTheme(color);
+
+        // Set background tint
         views.setInt(R.id.widget_bg_image, "setColorFilter", bgColor);
-        views.setTextViewText(R.id.widget_title, title);
-        if (title.isEmpty()) {
-            views.setViewVisibility(R.id.widget_title, android.view.View.GONE);
-        } else {
+
+        // Title
+        if (title != null && !title.isEmpty()) {
+            views.setTextViewText(R.id.widget_title, title);
             views.setViewVisibility(R.id.widget_title, android.view.View.VISIBLE);
+        } else {
+            views.setViewVisibility(R.id.widget_title, android.view.View.GONE);
         }
-        
-        CharSequence styledContent = parseMarkdown(content.isEmpty() ? "Tap to add content..." : content);
-        views.setTextViewText(R.id.widget_content, styledContent);
-        
+
+        // Content — convert Quill HTML to styled CharSequence
+        CharSequence displayContent;
+        if (content == null || content.isEmpty() || content.equals("<p><br></p>")) {
+            displayContent = "Tap to edit...";
+        } else {
+            displayContent = parseHtmlContent(content);
+        }
+        views.setTextViewText(R.id.widget_content, displayContent);
+
         views.setTextColor(R.id.widget_title, textColor);
         views.setTextColor(R.id.widget_content, textColor);
 
+        // Category
         if (category != null && !category.isEmpty()) {
             views.setTextViewText(R.id.widget_category, category.toUpperCase());
             views.setTextColor(R.id.widget_category, textColor);
@@ -62,7 +72,7 @@ public class StickyNoteWidget extends AppWidgetProvider {
             views.setViewVisibility(R.id.widget_category, android.view.View.GONE);
         }
 
-        // Click → open EditNoteActivity dialog
+        // Click → open EditNoteActivity
         Intent intent = new Intent(context, EditNoteActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         if (noteId != null) {
@@ -77,7 +87,6 @@ public class StickyNoteWidget extends AppWidgetProvider {
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 
-    // Called when user deletes the widget from home screen
     @Override
     public void onDeleted(Context context, int[] appWidgetIds) {
         for (int id : appWidgetIds) {
@@ -85,7 +94,6 @@ public class StickyNoteWidget extends AppWidgetProvider {
         }
     }
 
-    // Update ALL widgets (called from Capacitor plugin when notes change)
     public static void updateAllWidgets(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, StickyNoteWidget.class));
@@ -94,25 +102,40 @@ public class StickyNoteWidget extends AppWidgetProvider {
         }
     }
 
-    private static CharSequence parseMarkdown(String html) {
+    /**
+     * Convert Quill-generated HTML into a styled CharSequence for RemoteViews.
+     * Quill outputs: <p>, <strong>, <em>, <ul>, <ol>, <li>, <li data-list="checked|unchecked">
+     */
+    private static CharSequence parseHtmlContent(String html) {
         if (html == null || html.isEmpty()) return "";
-        // Content is already HTML from ReactQuill
-        // Convert Quill checklists to something Html.fromHtml can render
-        html = html.replaceAll("<li data-list=\"checked\">", "<li><s>☑ ");
-        html = html.replaceAll("</li>", "</s></li>"); // </s> is safe even if not checked, it just closes early
-        // Actually, safer:
-        html = html.replaceAll("<li data-list=\"checked\">(.*?)</li>", "<li><s>☑ $1</s></li>");
-        html = html.replaceAll("<li data-list=\"unchecked\">(.*?)</li>", "<li>☐ $1</li>");
-        
-        // Remove empty paragraphs to avoid huge spaces
-        html = html.replaceAll("<p><br></p>", "<br>");
-        
+
+        // 1. Convert Quill checklist items (MUST come before generic </li> handling)
+        html = html.replaceAll("<li data-list=\"checked\">(.*?)</li>", "<li>\u2611 <s>$1</s></li>");
+        html = html.replaceAll("<li data-list=\"unchecked\">(.*?)</li>", "<li>\u2610 $1</li>");
+
+        // 2. Remove empty Quill paragraphs
+        html = html.replace("<p><br></p>", "<br>");
+        html = html.replace("<p><br/></p>", "<br>");
+
+        // 3. Parse with Html.fromHtml
+        CharSequence result;
         if (android.os.Build.VERSION.SDK_INT >= 24) {
-            return android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_COMPACT);
+            result = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_COMPACT);
         } else {
             @SuppressWarnings("deprecation")
-            CharSequence result = android.text.Html.fromHtml(html);
-            return result;
+            CharSequence legacy = android.text.Html.fromHtml(html);
+            result = legacy;
         }
+
+        // 4. Trim trailing whitespace
+        String s = result.toString();
+        int end = s.length();
+        while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {
+            end--;
+        }
+        if (end < s.length() && result instanceof android.text.Spanned) {
+            return ((android.text.Spanned) result).subSequence(0, end);
+        }
+        return result;
     }
 }
