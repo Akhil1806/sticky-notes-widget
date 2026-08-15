@@ -27,7 +27,7 @@ function App() {
     clearAll,
   } = useNotes();
 
-  const [viewMode, setViewMode] = useState('free'); // 'free' | 'grid'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'free'
 
   const handleExport = useCallback(() => {
     const data = allNotes.map((n) => ({
