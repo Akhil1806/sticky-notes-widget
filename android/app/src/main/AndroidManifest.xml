@@ -56,6 +56,14 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+
+        <!-- Widget Editing Activity (Transparent Dialog) -->
+        <activity
+            android:name=".EditNoteActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance" />
     </application>
 
     <!-- Permissions -->

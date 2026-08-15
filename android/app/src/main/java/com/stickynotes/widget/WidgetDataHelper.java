@@ -80,6 +80,46 @@ public class WidgetDataHelper {
         return null;
     }
 
+    // Update a single note
+    public static void updateNote(Context context, String noteId, String newContent) {
+        try {
+            String data = getNotesData(context);
+            JSONArray notes = null;
+            if (data != null && data.trim().startsWith("{")) {
+                JSONObject obj = new JSONObject(data);
+                if (obj.has("notes")) {
+                    notes = obj.getJSONArray("notes");
+                } else if (obj.has("data")) {
+                    Object dataObj = obj.get("data");
+                    if (dataObj instanceof String) {
+                        notes = new JSONArray((String) dataObj);
+                    } else if (dataObj instanceof JSONArray) {
+                        notes = (JSONArray) dataObj;
+                    }
+                }
+            } else {
+                notes = new JSONArray(data);
+            }
+            
+            if (notes != null) {
+                for (int i = 0; i < notes.length(); i++) {
+                    JSONObject note = notes.getJSONObject(i);
+                    if (note.getString("id").equals(noteId)) {
+                        note.put("content", newContent);
+                        
+                        String now = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(new java.util.Date());
+                        note.put("updatedAt", now);
+                        
+                        saveNotesData(context, notes.toString());
+                        return;
+                    }
+                }
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
     // Get list of all notes (id, title, color, content preview)
     public static List<String[]> getNotesList(Context context) {
         List<String[]> list = new ArrayList<>();

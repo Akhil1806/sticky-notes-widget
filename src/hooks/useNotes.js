@@ -53,23 +53,64 @@ export function useNotes() {
   const [maxZ, setMaxZ] = useState(1);
   const [isReady, setIsReady] = useState(false);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount and merge with native widget data
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setNotes(parsed);
-        const maxZIndex = parsed.reduce((max, n) => Math.max(max, n.zIndex || 0), 1);
-        setMaxZ(maxZIndex);
-        syncNotesToWidget(parsed);
-      } else {
-        syncNotesToWidget([]);
+    const init = async () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        let parsed = stored ? JSON.parse(stored) : [];
+
+        // Check native widget storage for any updates made via the widget dialog
+        if (Capacitor.isNativePlatform()) {
+          try {
+            const result = await WidgetPlugin.getWidgetNotes();
+            const widgetNotes = JSON.parse(result.data || '[]');
+            
+            if (widgetNotes.length > 0) {
+              const appNotesMap = new Map(parsed.map(n => [n.id, n]));
+              let changed = false;
+
+              for (const wn of widgetNotes) {
+                const appNote = appNotesMap.get(wn.id);
+                if (!appNote) {
+                  // Note was created on widget side
+                  parsed.push(wn);
+                  changed = true;
+                } else {
+                  // Merge if widget note is newer
+                  const wTime = wn.updatedAt ? new Date(wn.updatedAt).getTime() : 0;
+                  const aTime = appNote.updatedAt ? new Date(appNote.updatedAt).getTime() : 0;
+                  if (wTime > aTime) {
+                    Object.assign(appNote, wn);
+                    changed = true;
+                  }
+                }
+              }
+
+              if (changed) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+              }
+            }
+          } catch (err) {
+            console.warn('[Widget] Failed to merge native notes:', err);
+          }
+        }
+
+        if (parsed.length > 0) {
+          setNotes(parsed);
+          const maxZIndex = parsed.reduce((max, n) => Math.max(max, n.zIndex || 0), 1);
+          setMaxZ(maxZIndex);
+          syncNotesToWidget(parsed);
+        } else {
+          syncNotesToWidget([]);
+        }
+      } catch (e) {
+        console.error('Failed to load notes:', e);
       }
-    } catch (e) {
-      console.error('Failed to load notes:', e);
-    }
-    setIsReady(true);
+      setIsReady(true);
+    };
+
+    init();
   }, []);
 
   // Save to localStorage on change + sync to native widget

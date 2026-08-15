@@ -30,7 +30,7 @@ public class StickyNoteWidget extends AppWidgetProvider {
         if (noteId != null) {
             JSONObject note = WidgetDataHelper.getNoteById(context, noteId);
             if (note != null) {
-                title = note.optString("title", "Untitled");
+                title = note.optString("title", "");
                 content = note.optString("content", "");
                 color = note.optString("color", "yellow");
                 category = note.optString("category", "");
@@ -41,8 +41,13 @@ public class StickyNoteWidget extends AppWidgetProvider {
         int bgColor = WidgetDataHelper.getColorForTheme(color);
         int textColor = WidgetDataHelper.getTextColorForTheme(color);
         views.setInt(R.id.widget_bg_image, "setColorFilter", bgColor);
-        views.setTextViewText(R.id.widget_title, title.isEmpty() ? "📝 Sticky Note" : title);
-        views.setTextViewText(R.id.widget_content, content.isEmpty() ? "Tap to add content..." : content);
+        views.setTextViewText(R.id.widget_title, title);
+        if (title.isEmpty()) {
+            views.setViewVisibility(R.id.widget_title, android.view.View.GONE);
+        } else {
+            views.setViewVisibility(R.id.widget_title, android.view.View.VISIBLE);
+        }
+        views.setTextViewText(R.id.widget_content, content);
         views.setTextColor(R.id.widget_title, textColor);
         views.setTextColor(R.id.widget_content, textColor);
 
@@ -54,9 +59,9 @@ public class StickyNoteWidget extends AppWidgetProvider {
             views.setViewVisibility(R.id.widget_category, android.view.View.GONE);
         }
 
-        // Click → open app
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        // Click → open EditNoteActivity dialog
+        Intent intent = new Intent(context, EditNoteActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         if (noteId != null) {
             intent.putExtra("noteId", noteId);
         }
