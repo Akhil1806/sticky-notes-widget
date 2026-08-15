@@ -94,19 +94,21 @@ public class StickyNoteWidget extends AppWidgetProvider {
         }
     }
 
-    private static CharSequence parseMarkdown(String text) {
-        if (text == null || text.isEmpty()) return "";
-        String html = text;
-        html = html.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        html = html.replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>");
-        html = html.replaceAll("\\*(.*?)\\*", "<i>$1</i>");
-        html = html.replace("\n", "<br>");
-        // Fix checklists
-        html = html.replaceAll("☑ (.*?)<br>", "<s>☑ $1</s><br>");
-        html = html.replaceAll("☑ (.*?)$", "<s>☑ $1</s>");
+    private static CharSequence parseMarkdown(String html) {
+        if (html == null || html.isEmpty()) return "";
+        // Content is already HTML from ReactQuill
+        // Convert Quill checklists to something Html.fromHtml can render
+        html = html.replaceAll("<li data-list=\"checked\">", "<li><s>☑ ");
+        html = html.replaceAll("</li>", "</s></li>"); // </s> is safe even if not checked, it just closes early
+        // Actually, safer:
+        html = html.replaceAll("<li data-list=\"checked\">(.*?)</li>", "<li><s>☑ $1</s></li>");
+        html = html.replaceAll("<li data-list=\"unchecked\">(.*?)</li>", "<li>☐ $1</li>");
+        
+        // Remove empty paragraphs to avoid huge spaces
+        html = html.replaceAll("<p><br></p>", "<br>");
         
         if (android.os.Build.VERSION.SDK_INT >= 24) {
-            return android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY);
+            return android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_COMPACT);
         } else {
             @SuppressWarnings("deprecation")
             CharSequence result = android.text.Html.fromHtml(html);

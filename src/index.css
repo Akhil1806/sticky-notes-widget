@@ -1238,3 +1238,44 @@ input, textarea {
   white-space: nowrap;
   border: 0;
 }
+
+/* Quill Editor Styles */
+.ql-container.ql-snow {
+  border: none !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+}
+.ql-editor {
+  padding: 8px 12px !important;
+  height: 100%;
+}
+.ql-editor p {
+  margin-bottom: 0.5em;
+}
+.ql-editor ul[data-checked=true],
+.ql-editor ul[data-checked=false] {
+  padding-left: 0;
+}
+.ql-editor li[data-list=checked],
+.ql-editor li[data-list=unchecked] {
+  padding-left: 1.5em;
+  position: relative;
+  list-style: none;
+  cursor: pointer;
+}
+.ql-editor li[data-list=checked]::before {
+  content: '☑' !important;
+  position: absolute;
+  left: 0;
+  cursor: pointer;
+}
+.ql-editor li[data-list=unchecked]::before {
+  content: '☐' !important;
+  position: absolute;
+  left: 0;
+  cursor: pointer;
+}
+.ql-editor li[data-list=checked] {
+  text-decoration: line-through;
+  opacity: 0.6;
+}

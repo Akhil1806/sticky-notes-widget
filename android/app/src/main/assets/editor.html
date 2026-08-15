@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="quill.min.js"></script>
+  <link href="quill.snow.css" rel="stylesheet">
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: transparent; }
+    #editor { height: 100%; border: none !important; font-size: 16px; padding: 12px; }
+    .ql-container.ql-snow { border: none !important; }
+    .ql-editor { padding: 0 !important; }
+    .ql-editor p { margin-bottom: 0.5em; }
+    .ql-editor li[data-list=checked] { text-decoration: line-through; opacity: 0.6; }
+    .ql-editor.ql-blank::before { font-style: normal; color: #888; }
+  </style>
+</head>
+<body>
+  <div id="editor"></div>
+  <script>
+    var quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: { toolbar: false },
+      placeholder: 'Write something...'
+    });
+    
+    // Called by Android to set content
+    function setHtml(html, colorHex, textColorHex) {
+      document.body.style.backgroundColor = colorHex;
+      document.body.style.color = textColorHex;
+      quill.root.innerHTML = html;
+    }
+    
+    // Called by Android to get content
+    function getHtml() {
+      return quill.root.innerHTML;
+    }
+
+    // Called by Android to format
+    function format(type) {
+      var format = quill.getFormat();
+      if (type === 'bold') {
+        quill.format('bold', !format.bold);
+      } else if (type === 'italic') {
+        quill.format('italic', !format.italic);
+      } else if (type === 'list') {
+        quill.format('list', format.list === 'bullet' ? false : 'bullet');
+      } else if (type === 'checklist') {
+        quill.format('list', format.list === 'check' ? false : 'check');
+      }
+    }
+    
+    quill.on('text-change', function() {
+      if (window.AndroidInterface) {
+        window.AndroidInterface.onTextChanged();
+      }
+    });
+  </script>
+</body>
+</html>

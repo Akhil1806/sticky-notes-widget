@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import { useDrag, useResize } from '../hooks/useDrag';
 
 const PIN_SVG = (
@@ -73,7 +75,6 @@ export default function StickyNote({
       onBringToFront(note.id);
     },
     onDrag: (x, y) => {
-      // Direct DOM manipulation for smooth dragging
       if (noteRef.current) {
         noteRef.current.style.left = `${x}px`;
         noteRef.current.style.top = `${y}px`;
@@ -101,7 +102,6 @@ export default function StickyNote({
     },
   });
 
-  // Handle click on note body to start editing
   const handleNoteClick = useCallback((e) => {
     if (isDraggingState) return;
     if (e.target.closest('.note-actions') || e.target.closest('.note-drag-handle') || e.target.closest('.resize-handle')) return;
@@ -111,17 +111,17 @@ export default function StickyNote({
     }
   }, [isDraggingState, isEditing, note.id, onBringToFront, onStartEdit]);
 
-  // Handle clicking outside to stop editing
   useEffect(() => {
     if (!isEditing) return;
     const handleClickOutside = (e) => {
       if (noteRef.current && !noteRef.current.contains(e.target)) {
+        // Only stop editing if clicking outside the color dropdown too
+        if (e.target.closest('.color-picker-dropdown') || e.target.closest('.ql-toolbar') || e.target.closest('.ql-tooltip')) return;
         onStopEdit();
         setShowFormatBar(false);
         setShowColorPicker(false);
       }
     };
-    // Delay to prevent immediate close
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('touchstart', handleClickOutside);
@@ -133,19 +133,14 @@ export default function StickyNote({
     };
   }, [isEditing, onStopEdit]);
 
-  // Focus title when starting to edit a new empty note
   useEffect(() => {
-    if (isEditing && !note.title && !note.content && titleRef.current) {
+    if (isEditing && !note.title && (!note.content || note.content === '<p><br></p>') && titleRef.current) {
       titleRef.current.focus();
     }
   }, [isEditing, note.title, note.content]);
 
   const handleTitleChange = (e) => {
     onUpdate(note.id, { title: e.target.value });
-  };
-
-  const handleContentChange = (e) => {
-    onUpdate(note.id, { content: e.target.value });
   };
 
   const handleCategoryChange = (e) => {
@@ -168,43 +163,26 @@ export default function StickyNote({
 
   const insertFormatting = (type) => {
     if (!contentRef.current) return;
-    const textarea = contentRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const selected = text.substring(start, end);
-
-    let replacement = '';
+    const editor = contentRef.current.getEditor();
+    const format = editor.getFormat();
+    
     switch (type) {
       case 'bold':
-        replacement = `**${selected || 'bold text'}**`;
+        editor.format('bold', !format.bold);
         break;
       case 'italic':
-        replacement = `*${selected || 'italic text'}*`;
+        editor.format('italic', !format.italic);
         break;
       case 'list':
-        replacement = selected
-          ? selected.split('\n').map((l) => `• ${l}`).join('\n')
-          : '• ';
+        editor.format('list', format.list === 'bullet' ? false : 'bullet');
         break;
       case 'checklist':
-        replacement = selected
-          ? selected.split('\n').map((l) => `☐ ${l}`).join('\n')
-          : '☐ ';
+        editor.format('list', format.list === 'check' ? false : 'check');
         break;
       default:
-        return;
+        break;
     }
-
-    const newText = text.substring(0, start) + replacement + text.substring(end);
-    onUpdate(note.id, { content: newText });
-
-    // Restore cursor position
-    setTimeout(() => {
-      textarea.focus();
-      const newCursorPos = start + replacement.length;
-      textarea.setSelectionRange(newCursorPos, newCursorPos);
-    }, 0);
+    editor.focus();
   };
 
   const fontSizeUp = () => {
@@ -338,71 +316,26 @@ export default function StickyNote({
 
       {/* Content */}
       {isEditing ? (
-        <textarea
-          ref={contentRef}
-          className="note-content-input"
-          value={note.content}
-          onChange={handleContentChange}
-          placeholder="Write something..."
-          style={{ fontSize: `${note.fontSize || 14}px` }}
+        <div 
+          className="note-content-input" 
           onClick={(e) => e.stopPropagation()}
-        />
-      ) : (
-        <div className="note-body" style={{ fontSize: `${note.fontSize || 14}px` }}>
-          {!note.content ? (
-            <span className="note-placeholder">Tap to edit...</span>
-          ) : (
-            note.content.split('\n').map((line, i) => {
-              let isChecklist = false;
-              let isChecked = false;
-              let lineText = line;
-              
-              if (line.startsWith('☐ ')) {
-                isChecklist = true;
-                lineText = line.substring(2);
-              } else if (line.startsWith('☑ ')) {
-                isChecklist = true;
-                isChecked = true;
-                lineText = line.substring(2);
-              }
-              
-              const renderInline = (str) => {
-                const parts = str.split(/(\*\*.*?\*\*|\*.*?\*)/g);
-                return parts.map((part, j) => {
-                  if (part.startsWith('**') && part.endsWith('**')) {
-                    return <strong key={j}>{part.slice(2, -2)}</strong>;
-                  } else if (part.startsWith('*') && part.endsWith('*')) {
-                    return <em key={j}>{part.slice(1, -1)}</em>;
-                  }
-                  return part;
-                });
-              };
-
-              if (isChecklist) {
-                return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const lines = note.content.split('\n');
-                        lines[i] = (isChecked ? '☐ ' : '☑ ') + lineText;
-                        onUpdate(note.id, { content: lines.join('\n') });
-                      }}
-                      style={{ cursor: 'pointer', marginTop: '2px' }}
-                    >
-                      {isChecked ? CHECK_SVG : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>}
-                    </div>
-                    <span style={{ textDecoration: isChecked ? 'line-through' : 'none', opacity: isChecked ? 0.6 : 1, flex: 1 }}>
-                      {renderInline(lineText)}
-                    </span>
-                  </div>
-                );
-              }
-              
-              return <div key={i} style={{ minHeight: '1.2em' }}>{renderInline(lineText)}</div>;
-            })
-          )}
+          style={{ height: 'calc(100% - 100px)', overflowY: 'auto' }}
+        >
+          <ReactQuill 
+            theme="snow"
+            value={note.content || ''} 
+            onChange={(val) => onUpdate(note.id, { content: val })} 
+            modules={{ toolbar: false }}
+            ref={contentRef}
+            placeholder="Write something..."
+          />
         </div>
+      ) : (
+        <div 
+          className="note-body ql-editor" 
+          style={{ fontSize: `${note.fontSize || 14}px`, padding: 0 }}
+          dangerouslySetInnerHTML={{ __html: note.content || '<span class="note-placeholder">Tap to edit...</span>' }}
+        />
       )}
 
       {/* Footer */}
