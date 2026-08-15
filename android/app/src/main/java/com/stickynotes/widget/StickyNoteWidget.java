@@ -47,7 +47,10 @@ public class StickyNoteWidget extends AppWidgetProvider {
         } else {
             views.setViewVisibility(R.id.widget_title, android.view.View.VISIBLE);
         }
-        views.setTextViewText(R.id.widget_content, content);
+        
+        CharSequence styledContent = parseMarkdown(content.isEmpty() ? "Tap to add content..." : content);
+        views.setTextViewText(R.id.widget_content, styledContent);
+        
         views.setTextColor(R.id.widget_title, textColor);
         views.setTextColor(R.id.widget_content, textColor);
 
@@ -88,6 +91,26 @@ public class StickyNoteWidget extends AppWidgetProvider {
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, StickyNoteWidget.class));
         for (int id : ids) {
             updateWidget(context, manager, id);
+        }
+    }
+
+    private static CharSequence parseMarkdown(String text) {
+        if (text == null || text.isEmpty()) return "";
+        String html = text;
+        html = html.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        html = html.replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>");
+        html = html.replaceAll("\\*(.*?)\\*", "<i>$1</i>");
+        html = html.replace("\n", "<br>");
+        // Fix checklists
+        html = html.replaceAll("☑ (.*?)<br>", "<s>☑ $1</s><br>");
+        html = html.replaceAll("☑ (.*?)$", "<s>☑ $1</s>");
+        
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            return android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY);
+        } else {
+            @SuppressWarnings("deprecation")
+            CharSequence result = android.text.Html.fromHtml(html);
+            return result;
         }
     }
 }

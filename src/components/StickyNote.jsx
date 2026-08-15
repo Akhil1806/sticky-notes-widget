@@ -349,7 +349,59 @@ export default function StickyNote({
         />
       ) : (
         <div className="note-body" style={{ fontSize: `${note.fontSize || 14}px` }}>
-          {note.content || <span className="note-placeholder">Tap to edit...</span>}
+          {!note.content ? (
+            <span className="note-placeholder">Tap to edit...</span>
+          ) : (
+            note.content.split('\n').map((line, i) => {
+              let isChecklist = false;
+              let isChecked = false;
+              let lineText = line;
+              
+              if (line.startsWith('☐ ')) {
+                isChecklist = true;
+                lineText = line.substring(2);
+              } else if (line.startsWith('☑ ')) {
+                isChecklist = true;
+                isChecked = true;
+                lineText = line.substring(2);
+              }
+              
+              const renderInline = (str) => {
+                const parts = str.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+                return parts.map((part, j) => {
+                  if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={j}>{part.slice(2, -2)}</strong>;
+                  } else if (part.startsWith('*') && part.endsWith('*')) {
+                    return <em key={j}>{part.slice(1, -1)}</em>;
+                  }
+                  return part;
+                });
+              };
+
+              if (isChecklist) {
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const lines = note.content.split('\n');
+                        lines[i] = (isChecked ? '☐ ' : '☑ ') + lineText;
+                        onUpdate(note.id, { content: lines.join('\n') });
+                      }}
+                      style={{ cursor: 'pointer', marginTop: '2px' }}
+                    >
+                      {isChecked ? CHECK_SVG : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>}
+                    </div>
+                    <span style={{ textDecoration: isChecked ? 'line-through' : 'none', opacity: isChecked ? 0.6 : 1, flex: 1 }}>
+                      {renderInline(lineText)}
+                    </span>
+                  </div>
+                );
+              }
+              
+              return <div key={i} style={{ minHeight: '1.2em' }}>{renderInline(lineText)}</div>;
+            })
+          )}
         </div>
       )}
 

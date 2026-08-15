@@ -84,11 +84,17 @@ public class EditNoteActivity extends Activity {
         
         final EditText editText = new EditText(this);
         
-        String[] formats = {"•", "☐", "**", "*"};
-        for (String f : formats) {
+        String[] formatLabels = {"•", "☑", "B", "I"};
+        String[] formatInserts = {"•", "☐", "**", "*"};
+        
+        for (int i = 0; i < formatLabels.length; i++) {
+            final String label = formatLabels[i];
+            final String ins = formatInserts[i];
             Button formatBtn = new Button(this);
-            formatBtn.setText(f);
-            formatBtn.setTextSize(14);
+            formatBtn.setText(label);
+            formatBtn.setTextSize(16);
+            if (label.equals("B")) formatBtn.setTypeface(null, android.graphics.Typeface.BOLD);
+            if (label.equals("I")) formatBtn.setTypeface(null, android.graphics.Typeface.ITALIC);
             formatBtn.setTextColor(0xFF333333);
             formatBtn.setBackgroundColor(Color.TRANSPARENT);
             LinearLayout.LayoutParams fParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
@@ -98,10 +104,11 @@ public class EditNoteActivity extends Activity {
                 int end = Math.max(editText.getSelectionEnd(), 0);
                 String selected = editText.getText().toString().substring(start, end);
                 String replace = "";
-                if (f.equals("•")) replace = "• " + selected;
-                else if (f.equals("☐")) replace = "☐ " + selected;
-                else if (f.equals("**")) replace = "**" + (selected.isEmpty() ? "bold" : selected) + "**";
-                else if (f.equals("*")) replace = "*" + (selected.isEmpty() ? "italic" : selected) + "*";
+                
+                if (ins.equals("•")) replace = "• " + selected;
+                else if (ins.equals("☐")) replace = "☐ " + selected;
+                else if (ins.equals("**")) replace = "**" + (selected.isEmpty() ? "bold" : selected) + "**";
+                else if (ins.equals("*")) replace = "*" + (selected.isEmpty() ? "italic" : selected) + "*";
                 
                 editText.getText().replace(start, end, replace);
             });
@@ -121,6 +128,41 @@ public class EditNoteActivity extends Activity {
         editText.setLayoutParams(params);
         editText.setSelection(editText.getText().length());
         editText.requestFocus();
+        
+        editText.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                Object[] styles = s.getSpans(0, s.length(), android.text.style.StyleSpan.class);
+                for (Object span : styles) s.removeSpan(span);
+                Object[] colors = s.getSpans(0, s.length(), android.text.style.ForegroundColorSpan.class);
+                for (Object span : colors) s.removeSpan(span);
+                Object[] strikes = s.getSpans(0, s.length(), android.text.style.StrikethroughSpan.class);
+                for (Object span : strikes) s.removeSpan(span);
+                
+                String text = s.toString();
+                java.util.regex.Matcher m1 = java.util.regex.Pattern.compile("\\*\\*(.*?)\\*\\*").matcher(text);
+                while (m1.find()) {
+                    s.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), m1.start(1), m1.end(1), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    s.setSpan(new android.text.style.ForegroundColorSpan(0x44000000), m1.start(), m1.start(1), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    s.setSpan(new android.text.style.ForegroundColorSpan(0x44000000), m1.end(1), m1.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("(?<!\\*)\\*(?!\\*)(.*?)(?<!\\*)\\*(?!\\*)").matcher(text);
+                while (m2.find()) {
+                    s.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.ITALIC), m2.start(1), m2.end(1), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    s.setSpan(new android.text.style.ForegroundColorSpan(0x44000000), m2.start(), m2.start(1), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    s.setSpan(new android.text.style.ForegroundColorSpan(0x44000000), m2.end(1), m2.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                java.util.regex.Matcher m3 = java.util.regex.Pattern.compile("☑ (.*?)(?=\\n|$)").matcher(text);
+                while (m3.find()) {
+                    s.setSpan(new android.text.style.StrikethroughSpan(), m3.start(1), m3.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    s.setSpan(new android.text.style.ForegroundColorSpan(0x88000000), m3.start(), m3.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+            }
+        });
+        
+        // trigger initial styling
+        editText.setText(editText.getText());
         
         Button saveBtn = new Button(this);
         saveBtn.setText("Save & Close");
