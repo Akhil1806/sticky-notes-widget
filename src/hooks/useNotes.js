@@ -51,7 +51,7 @@ export function useNotes() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [maxZ, setMaxZ] = useState(1);
-  const notesLoaded = useRef(false);
+  const [isReady, setIsReady] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -69,12 +69,12 @@ export function useNotes() {
     } catch (e) {
       console.error('Failed to load notes:', e);
     }
-    notesLoaded.current = true;
+    setIsReady(true);
   }, []);
 
   // Save to localStorage on change + sync to native widget
   useEffect(() => {
-    if (notesLoaded.current) {
+    if (isReady) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
         // Sync to native Android widget
@@ -83,7 +83,7 @@ export function useNotes() {
         console.error('Failed to save notes:', e);
       }
     }
-  }, [notes]);
+  }, [notes, isReady]);
 
   const addNote = useCallback((overrides = {}) => {
     setNotes((prev) => {
