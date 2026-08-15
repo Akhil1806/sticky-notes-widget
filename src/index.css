@@ -549,85 +549,142 @@ input, textarea {
   margin-bottom: 6px;
 }
 
-/* Unified Single Checkbox Architecture (Eliminates CSS Collisions) */
-ul[data-type="taskList"] {
+/* ==========================================================================
+   UNIFIED TASK LIST & CHECKBOX ARCHITECTURE (Zero Wrapping & True Strikethrough)
+   ========================================================================== */
+
+ul[data-type="taskList"],
+.apple-editor-content ul[data-type="taskList"],
+.card-rendered-html ul[data-type="taskList"] {
   list-style: none !important;
   padding-left: 0 !important;
-  margin: 4px 0 !important;
+  margin: 4px 0 8px 0 !important;
 }
 
-li[data-type="taskItem"] {
+/* Task Item: Strict horizontal flex row */
+li[data-type="taskItem"],
+.apple-editor-content li[data-type="taskItem"],
+.card-rendered-html li[data-type="taskItem"] {
   display: flex !important;
+  flex-direction: row !important;
   align-items: flex-start !important;
-  gap: 8px !important;
+  gap: 10px !important;
   padding: 3px 0 !important;
+  margin: 0 0 4px 0 !important;
+  position: relative !important;
+  width: 100% !important;
   cursor: pointer;
-  position: relative;
 }
 
-/* Hide any duplicate ::before pseudo elements */
+/* Hide duplicate pseudo-element markers */
 li[data-type="taskItem"]::before,
-.card-rendered-html li[data-type="taskItem"]::before {
+.card-rendered-html li[data-type="taskItem"]::before,
+.apple-editor-content li[data-type="taskItem"]::before {
   display: none !important;
   content: "" !important;
 }
 
-li[data-type="taskItem"] > label {
-  display: flex;
-  align-items: center;
-  margin-top: 2px;
-  cursor: pointer;
-  user-select: none;
+/* Checkbox Label: Compact, non-growing fixed box */
+li[data-type="taskItem"] > label,
+.apple-editor-content li[data-type="taskItem"] > label,
+.card-rendered-html li[data-type="taskItem"] > label {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 20px !important;
+  flex-shrink: 0 !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: 2px 0 0 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  line-height: 1 !important;
 }
 
-li[data-type="taskItem"] > label input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  border: 2px solid currentColor;
-  opacity: 0.75;
-  background: transparent;
-  cursor: pointer;
-  display: inline-grid;
-  place-content: center;
-  transition: all 0.15s ease;
-  margin: 0;
+/* Checkbox Input Control */
+li[data-type="taskItem"] > label input[type="checkbox"],
+.apple-editor-content li[data-type="taskItem"] > label input[type="checkbox"],
+.card-rendered-html li[data-type="taskItem"] > label input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  border-radius: 5px !important;
+  border: 2px solid currentColor !important;
+  opacity: 0.75 !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  display: inline-grid !important;
+  place-content: center !important;
+  transition: all 0.15s ease !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
 }
 
+/* Checked state background */
 li[data-type="taskItem"] > label input[type="checkbox"]:checked,
 li[data-type="taskItem"][data-checked="true"] > label input[type="checkbox"] {
-  background: #34C759;
-  border-color: #34C759;
-  opacity: 1;
+  background: #34C759 !important;
+  border-color: #34C759 !important;
+  opacity: 1 !important;
 }
 
+/* Checked state checkmark */
 li[data-type="taskItem"] > label input[type="checkbox"]:checked::after,
 li[data-type="taskItem"][data-checked="true"] > label input[type="checkbox"]::after {
-  content: '';
-  width: 5px;
-  height: 9px;
-  border: solid #FFFFFF;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg) translate(-1px, -1px);
-  display: block;
+  content: '' !important;
+  width: 5px !important;
+  height: 9px !important;
+  border: solid #FFFFFF !important;
+  border-width: 0 2px 2px 0 !important;
+  transform: rotate(45deg) translate(-1px, -1px) !important;
+  display: block !important;
 }
 
-li[data-type="taskItem"][data-checked="true"] > div {
-  text-decoration: line-through;
-  opacity: 0.55;
+/* Content Container next to checkbox */
+li[data-type="taskItem"] > div,
+.apple-editor-content li[data-type="taskItem"] > div,
+.card-rendered-html li[data-type="taskItem"] > div {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-li[data-type="taskItem"] > div {
-  flex: 1;
+li[data-type="taskItem"] > div > p,
+.apple-editor-content li[data-type="taskItem"] > div > p,
+.card-rendered-html li[data-type="taskItem"] > div > p {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.4 !important;
+}
+
+/* Strikethrough for checked task items */
+li[data-type="taskItem"][data-checked="true"] > div,
+li[data-type="taskItem"][data-checked="true"] > div > p,
+li[data-type="taskItem"][data-checked="true"] > div *,
+.card-rendered-html li[data-type="taskItem"][data-checked="true"] > div,
+.card-rendered-html li[data-type="taskItem"][data-checked="true"] > div > p,
+.card-rendered-html li[data-type="taskItem"][data-checked="true"] > div *,
+.apple-editor-content li[data-type="taskItem"][data-checked="true"] > div,
+.apple-editor-content li[data-type="taskItem"][data-checked="true"] > div > p,
+.apple-editor-content li[data-type="taskItem"][data-checked="true"] > div * {
+  text-decoration: line-through !important;
+  text-decoration-color: currentColor !important;
+  text-decoration-thickness: 1.5px !important;
+  opacity: 0.55 !important;
 }
 
 /* Legacy checklist fallback (for old notes) */
 li[data-list]:not([data-type="taskItem"]) {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
+  padding: 3px 0;
 }
 
 li[data-list="unchecked"]:not([data-type="taskItem"])::before {
@@ -644,8 +701,8 @@ li[data-list="checked"]:not([data-type="taskItem"])::before {
 }
 
 li[data-list="checked"]:not([data-type="taskItem"]) {
-  text-decoration: line-through;
-  opacity: 0.55;
+  text-decoration: line-through !important;
+  opacity: 0.55 !important;
 }
 
 .card-empty-prompt {
