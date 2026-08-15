@@ -2,7 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { syncNotesToWidget, getWidgetNotes, getLaunchIntent, clearLaunchIntent } from '../plugins/widgetPlugin';
+import {
+  syncNotesToWidget,
+  getWidgetNotes,
+  getLaunchIntent,
+  clearLaunchIntent,
+  addLaunchIntentListener,
+} from '../plugins/widgetPlugin';
 
 const STORAGE_KEY = 'sticky-notes-data';
 export const NOTE_COLORS = ['yellow', 'coral', 'mint', 'sky', 'lavender', 'peach', 'ocean', 'rose'];
@@ -26,7 +32,7 @@ const triggerHaptic = async (style = ImpactStyle.Light) => {
       await Haptics.impact({ style });
     }
   } catch (e) {
-    // Ignore haptic errors on web or unsupported devices
+    // Ignore on unsupported devices
   }
 };
 
@@ -67,9 +73,16 @@ export function useNotes() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [isReady, setIsReady] = useState(false);
+
+  const notesRef = useRef(notes);
   const debounceTimerRef = useRef(null);
 
-  // Helper to persist to localStorage & trigger widget sync immediately
+  // Keep notesRef in sync with state
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+
+  // Persist to localStorage & trigger widget sync
   const persistAndSync = useCallback((notesToSave) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(notesToSave));
@@ -85,7 +98,6 @@ export function useNotes() {
     try {
       const widgetNotes = await getWidgetNotes();
       if (!Array.isArray(widgetNotes) || widgetNotes.length === 0) {
-        // If native storage has no notes but local has notes, sync local to native!
         if (currentNotes && currentNotes.length > 0) {
           syncNotesToWidget(currentNotes);
         }
@@ -140,15 +152,15 @@ export function useNotes() {
           }
         }
 
-        // Merge with native SharedPreferences on Android
         const merged = await reconcileWithWidgetNotes(parsed);
         if (isMounted) {
           setNotes(merged);
+          notesRef.current = merged;
           setIsReady(true);
           syncNotesToWidget(merged);
         }
 
-        // Check if launched via home screen widget tap
+        // Check launch intent on cold start
         const intent = await getLaunchIntent();
         if (isMounted && intent && intent.noteId) {
           setEditingNoteId(intent.noteId);
@@ -162,39 +174,58 @@ export function useNotes() {
 
     init();
 
-    // Listen for app state changes (resume/foreground) to pull latest widget edits
-    let appStateListener = null;
+    // Listen for background-to-foreground and foreground-to-background transitions
+    let appStateHandle = null;
+    let launchIntentHandle = null;
+
     if (Capacitor.isNativePlatform()) {
       CapApp.addListener('appStateChange', async ({ isActive }) => {
         if (isActive) {
-          setNotes((prevNotes) => {
-            reconcileWithWidgetNotes(prevNotes).then((updated) => {
-              if (updated && updated !== prevNotes) {
-                setNotes(updated);
-              }
-            });
-            return prevNotes;
-          });
+          // App resumed -> pull latest widget changes
+          const current = notesRef.current;
+          const updated = await reconcileWithWidgetNotes(current);
+          if (updated && updated !== current) {
+            setNotes(updated);
+            notesRef.current = updated;
+          }
 
-          // Check if launched via widget tap while app was in background
           const intent = await getLaunchIntent();
           if (intent && intent.noteId) {
             setEditingNoteId(intent.noteId);
             clearLaunchIntent();
           }
+        } else {
+          // App going to background -> immediately flush pending uncommitted changes
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+          }
+          persistAndSync(notesRef.current);
         }
       }).then((handle) => {
-        appStateListener = handle;
+        appStateHandle = handle;
+      });
+
+      // Listen for widget tap while app is already warm in background
+      addLaunchIntentListener(({ noteId }) => {
+        if (noteId) {
+          setEditingNoteId(noteId);
+          clearLaunchIntent();
+        }
+      }).then((handle) => {
+        launchIntentHandle = handle;
       });
     }
 
     return () => {
       isMounted = false;
-      if (appStateListener) {
-        appStateListener.remove();
+      if (appStateHandle && typeof appStateHandle.remove === 'function') {
+        appStateHandle.remove();
+      }
+      if (launchIntentHandle && typeof launchIntentHandle.remove === 'function') {
+        launchIntentHandle.remove();
       }
     };
-  }, [reconcileWithWidgetNotes]);
+  }, [reconcileWithWidgetNotes, persistAndSync]);
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -206,7 +237,7 @@ export function useNotes() {
 
     debounceTimerRef.current = setTimeout(() => {
       persistAndSync(notes);
-    }, 200);
+    }, 150);
 
     return () => {
       if (debounceTimerRef.current) {
@@ -219,38 +250,28 @@ export function useNotes() {
   const addNote = useCallback((overrides = {}) => {
     triggerHaptic(ImpactStyle.Medium);
     const newNote = createNote(overrides);
-    setNotes((prev) => {
-      const next = [newNote, ...prev];
-      persistAndSync(next);
-      return next;
-    });
+    setNotes((prev) => [newNote, ...prev]);
     setEditingNoteId(newNote.id);
     return newNote.id;
-  }, [persistAndSync]);
+  }, []);
 
   // Update existing note
   const updateNote = useCallback((id, updates) => {
-    setNotes((prev) => {
-      const next = prev.map((note) =>
+    setNotes((prev) =>
+      prev.map((note) =>
         note.id === id
           ? { ...note, ...updates, updatedAt: new Date().toISOString() }
           : note
-      );
-      persistAndSync(next);
-      return next;
-    });
-  }, [persistAndSync]);
+      )
+    );
+  }, []);
 
   // Delete note
   const deleteNote = useCallback((id) => {
     triggerHaptic(ImpactStyle.Medium);
-    setNotes((prev) => {
-      const next = prev.filter((note) => note.id !== id);
-      persistAndSync(next);
-      return next;
-    });
+    setNotes((prev) => prev.filter((note) => note.id !== id));
     if (editingNoteId === id) setEditingNoteId(null);
-  }, [editingNoteId, persistAndSync]);
+  }, [editingNoteId]);
 
   // Duplicate note
   const duplicateNote = useCallback((id) => {
@@ -266,38 +287,33 @@ export function useNotes() {
         fontSize: source.fontSize,
         pinned: false,
       });
-      const next = [copy, ...prev];
-      persistAndSync(next);
-      return next;
+      return [copy, ...prev];
     });
-  }, [persistAndSync]);
+  }, []);
 
   // Toggle pin
   const togglePin = useCallback((id) => {
     triggerHaptic(ImpactStyle.Light);
-    setNotes((prev) => {
-      const next = prev.map((note) =>
+    setNotes((prev) =>
+      prev.map((note) =>
         note.id === id ? { ...note, pinned: !note.pinned, updatedAt: new Date().toISOString() } : note
-      );
-      persistAndSync(next);
-      return next;
-    });
-  }, [persistAndSync]);
+      )
+    );
+  }, []);
 
-  // Directly toggle a checklist item inside note content from the card view!
+  // Directly toggle a checklist item inside note content from the card view
   const toggleChecklistItem = useCallback((noteId, itemIndex) => {
     triggerHaptic(ImpactStyle.Light);
-    setNotes((prev) => {
-      let wasModified = false;
-      const next = prev.map((note) => {
+    setNotes((prev) =>
+      prev.map((note) => {
         if (note.id !== noteId || !note.content) return note;
 
         let currentIndex = 0;
         let modified = false;
 
-        // Handle Tiptap TaskItem: <li ... data-checked="false|true" ...>
+        // Order-agnostic Tiptap TaskItem regex matching
         let newContent = note.content.replace(
-          /(<li\s+[^>]*data-type="taskItem"[^>]*data-checked=")(true|false)(")/gi,
+          /(<li\s+(?:[^>]*?\s+)?data-checked=")(true|false)(")/gi,
           (match, prefix, checkedState, suffix) => {
             if (currentIndex === itemIndex) {
               modified = true;
@@ -314,7 +330,7 @@ export function useNotes() {
         if (!modified) {
           currentIndex = 0;
           newContent = note.content.replace(
-            /(<li\s+[^>]*data-list=")(checked|unchecked)(")/gi,
+            /(<li\s+(?:[^>]*?\s+)?data-list=")(checked|unchecked)(")/gi,
             (match, prefix, checkedState, suffix) => {
               if (currentIndex === itemIndex) {
                 modified = true;
@@ -329,18 +345,12 @@ export function useNotes() {
         }
 
         if (modified) {
-          wasModified = true;
           return { ...note, content: newContent, updatedAt: new Date().toISOString() };
         }
         return note;
-      });
-
-      if (wasModified) {
-        persistAndSync(next);
-      }
-      return next;
-    });
-  }, [persistAndSync]);
+      })
+    );
+  }, []);
 
   // Import notes from JSON
   const importNotes = useCallback((jsonString) => {
@@ -365,9 +375,7 @@ export function useNotes() {
         const nonConflicting = importedNotes.map((n) =>
           existingIds.has(n.id) ? { ...n, id: generateId() } : n
         );
-        const next = [...nonConflicting, ...prev];
-        persistAndSync(next);
-        return next;
+        return [...nonConflicting, ...prev];
       });
 
       triggerHaptic(ImpactStyle.Heavy);
@@ -376,20 +384,19 @@ export function useNotes() {
       console.error('[useNotes] Import failed:', err);
       return { success: false, error: err.message };
     }
-  }, [persistAndSync]);
+  }, []);
 
   // Clear all notes
   const clearAll = useCallback(() => {
     triggerHaptic(ImpactStyle.Heavy);
     setNotes([]);
     setEditingNoteId(null);
-    persistAndSync([]);
-  }, [persistAndSync]);
+  }, []);
 
-  // Derived categories (unique non-empty tags)
+  // Derived categories
   const categories = Array.from(new Set(notes.map((n) => n.category).filter(Boolean)));
 
-  // Filtered notes (with safe null checks & HTML-safe search)
+  // Filtered notes
   const filteredNotes = notes.filter((note) => {
     const titleMatch = (note.title || '').toLowerCase().includes(searchQuery.toLowerCase());
     const cleanContent = stripHtml(note.content || '').toLowerCase();

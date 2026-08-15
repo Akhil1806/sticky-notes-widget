@@ -149,7 +149,6 @@ public class StickyNoteWidgetConfig extends Activity {
         if (noteId.equals("__new__")) {
             String newId = "note-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
             try {
-                org.json.JSONArray notes = new org.json.JSONArray(WidgetDataHelper.getNotesData(this));
                 org.json.JSONObject newNote = new org.json.JSONObject();
                 newNote.put("id", newId);
                 newNote.put("title", "New Note");
@@ -161,8 +160,7 @@ public class StickyNoteWidgetConfig extends Activity {
                 String now = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(new java.util.Date());
                 newNote.put("createdAt", now);
                 newNote.put("updatedAt", now);
-                notes.put(newNote);
-                WidgetDataHelper.saveNotesData(this, notes.toString());
+                WidgetDataHelper.addNote(this, newNote);
                 noteId = newId;
             } catch (org.json.JSONException e) {
                 e.printStackTrace();

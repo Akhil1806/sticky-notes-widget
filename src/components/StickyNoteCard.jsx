@@ -56,11 +56,12 @@ export default function StickyNoteCard({
     const taskItem = e.target.closest('li[data-type="taskItem"], li[data-list]');
     const isCheckTarget = e.target.closest('label, input[type="checkbox"]');
 
-    if (isCheckTarget && taskItem && taskItem.parentNode) {
+    if (isCheckTarget && taskItem) {
       e.stopPropagation();
       e.preventDefault();
-      const allItems = Array.from(taskItem.parentNode.children);
-      const idx = allItems.indexOf(taskItem);
+      // Calculate global index across all task items in this card
+      const allTaskItems = Array.from(e.currentTarget.querySelectorAll('li[data-type="taskItem"], li[data-list]'));
+      const idx = allTaskItems.indexOf(taskItem);
       if (idx !== -1) {
         onToggleChecklist(note.id, idx);
         return;

@@ -30,7 +30,15 @@ export async function getWidgetNotes() {
     if (!Capacitor.isNativePlatform()) return [];
     const result = await WidgetPlugin.getWidgetNotes();
     if (!result || !result.data) return [];
-    return JSON.parse(result.data);
+    const data = result.data;
+    if (typeof data === 'string') {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && Array.isArray(parsed.notes)) return parsed.notes;
+      if (parsed && typeof parsed.data === 'string') return JSON.parse(parsed.data);
+      return [];
+    }
+    return Array.isArray(data) ? data : [];
   } catch (err) {
     console.warn('[WidgetPlugin] getWidgetNotes failed:', err?.message || err);
     return [];
@@ -61,8 +69,18 @@ export async function clearLaunchIntent() {
       await WidgetPlugin.clearLaunchIntent();
     }
   } catch (err) {
-    // Ignore if not implemented on older native builds
+    // Ignore on web
   }
+}
+
+/**
+ * Listen for launch intents while the app is already open in background.
+ * @param {Function} listener 
+ * @returns {Promise<{ remove: () => void }>}
+ */
+export function addLaunchIntentListener(listener) {
+  if (!Capacitor.isNativePlatform()) return Promise.resolve({ remove: () => {} });
+  return WidgetPlugin.addListener('launchIntentReceived', listener);
 }
 
 export default WidgetPlugin;

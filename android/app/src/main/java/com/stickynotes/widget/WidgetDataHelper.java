@@ -48,8 +48,51 @@ public class WidgetDataHelper {
         prefs.edit().remove(KEY_WIDGET_PREFIX + widgetId).commit();
     }
 
+    // Safely append a new note preserving whatever top-level JSON structure exists
+    public static void addNote(Context context, JSONObject newNote) {
+        if (context == null || newNote == null) return;
+        String data = getNotesData(context);
+        if (data == null || data.trim().isEmpty()) {
+            saveNotesData(context, new JSONArray().put(newNote).toString());
+            return;
+        }
+        try {
+            String trimmed = data.trim();
+            if (trimmed.startsWith("{")) {
+                JSONObject obj = new JSONObject(trimmed);
+                if (obj.has("notes")) {
+                    obj.getJSONArray("notes").put(newNote);
+                    saveNotesData(context, obj.toString());
+                    return;
+                } else if (obj.has("data")) {
+                    Object dataObj = obj.get("data");
+                    if (dataObj instanceof JSONArray) {
+                        ((JSONArray) dataObj).put(newNote);
+                        saveNotesData(context, obj.toString());
+                        return;
+                    } else if (dataObj instanceof String) {
+                        JSONArray arr = new JSONArray((String) dataObj);
+                        arr.put(newNote);
+                        obj.put("data", arr.toString());
+                        saveNotesData(context, obj.toString());
+                        return;
+                    }
+                }
+            }
+            // Standard flat array
+            JSONArray arr = new JSONArray(trimmed);
+            arr.put(newNote);
+            saveNotesData(context, arr.toString());
+        } catch (JSONException e) {
+            e.printStackTrace();
+            JSONArray arr = new JSONArray();
+            arr.put(newNote);
+            saveNotesData(context, arr.toString());
+        }
+    }
+
     // Parse JSON data safely into JSONArray
-    private static JSONArray parseNotesArray(String data) {
+    public static JSONArray parseNotesArray(String data) {
         if (data == null || data.trim().isEmpty()) return new JSONArray();
         try {
             String trimmed = data.trim();
@@ -130,14 +173,14 @@ public class WidgetDataHelper {
         String text = html;
 
         // Replace task items with clean checklist symbols
-        text = text.replaceAll("(?i)<li[^>]*data-checked=[\"']true[\"'][^>]*>", "\u2611 ");
-        text = text.replaceAll("(?i)<li[^>]*data-checked=[\"']false[\"'][^>]*>", "\u2610 ");
-        text = text.replaceAll("(?i)<li[^>]*data-list=[\"']checked[\"'][^>]*>", "\u2611 ");
-        text = text.replaceAll("(?i)<li[^>]*data-list=[\"']unchecked[\"'][^>]*>", "\u2610 ");
-        text = text.replaceAll("(?i)<p>", "");
-        text = text.replaceAll("(?i)</p>", "\n");
-        text = text.replaceAll("(?i)<br\\s*/?>", "\n");
-        text = text.replaceAll("(?i)</li>", "\n");
+        text = text.replaceAll("(?is)<li[^>]*data-checked=[\"']true[\"'][^>]*>", "\u2611 ");
+        text = text.replaceAll("(?is)<li[^>]*data-checked=[\"']false[\"'][^>]*>", "\u2610 ");
+        text = text.replaceAll("(?is)<li[^>]*data-list=[\"']checked[\"'][^>]*>", "\u2611 ");
+        text = text.replaceAll("(?is)<li[^>]*data-list=[\"']unchecked[\"'][^>]*>", "\u2610 ");
+        text = text.replaceAll("(?is)<p>", "");
+        text = text.replaceAll("(?is)</p>", "\n");
+        text = text.replaceAll("(?is)<br\\s*/?>", "\n");
+        text = text.replaceAll("(?is)</li>", "\n");
 
         // Strip all other HTML tags
         text = text.replaceAll("<[^>]*>", " ")

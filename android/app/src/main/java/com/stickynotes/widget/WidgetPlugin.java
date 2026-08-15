@@ -1,5 +1,6 @@
 package com.stickynotes.widget;
 
+import android.content.Intent;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -9,10 +10,18 @@ import com.getcapacitor.JSObject;
 @CapacitorPlugin(name = "WidgetPlugin")
 public class WidgetPlugin extends Plugin {
 
-    private static String pendingLaunchNoteId = null;
+    private String pendingLaunchNoteId = null;
 
-    public static void notifyLaunchIntent(String noteId) {
-        pendingLaunchNoteId = noteId;
+    @Override
+    protected void handleOnNewIntent(Intent intent) {
+        super.handleOnNewIntent(intent);
+        if (intent != null && intent.hasExtra("noteId")) {
+            String noteId = intent.getStringExtra("noteId");
+            pendingLaunchNoteId = noteId;
+            JSObject ret = new JSObject();
+            ret.put("noteId", noteId);
+            notifyListeners("launchIntentReceived", ret, true);
+        }
     }
 
     @PluginMethod
@@ -23,10 +32,10 @@ public class WidgetPlugin extends Plugin {
             return;
         }
 
-        // Save to SharedPreferences
+        // Save synchronously to SharedPreferences
         WidgetDataHelper.saveNotesData(getContext(), data);
 
-        // Update all existing home screen widgets
+        // Update all existing home screen widgets in real time
         StickyNoteWidget.updateAllWidgets(getContext());
 
         JSObject ret = new JSObject();
@@ -46,7 +55,7 @@ public class WidgetPlugin extends Plugin {
     public void getLaunchIntent(PluginCall call) {
         String noteId = pendingLaunchNoteId;
         if (noteId == null && getActivity() != null && getActivity().getIntent() != null) {
-            android.content.Intent intent = getActivity().getIntent();
+            Intent intent = getActivity().getIntent();
             if (intent.hasExtra("noteId")) {
                 noteId = intent.getStringExtra("noteId");
             }
